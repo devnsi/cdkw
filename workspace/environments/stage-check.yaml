@@ -1,0 +1,9 @@
+account: "98765"
+profile: "account-stage"
+stage: "stage"
+
+regions:
+  eu-central-1:
+    is_primary: true
+  us-west-3:
+    is_primary: false

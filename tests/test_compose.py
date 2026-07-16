@@ -1,0 +1,66 @@
+from pathlib import Path
+
+from cdkw.compose import compose_commands
+from cdkw.config import ProjectConfig
+
+APP_DIR = Path("app")
+
+
+class TestComposition:
+    def test_one_command_per_region_in_order(self, env_config, project_config):
+        commands = compose_commands(
+            "deploy", "feature-123", env_config, ["us-east-1", "eu-central-1"], project_config, [], APP_DIR
+        )
+        assert [c.region for c in commands] == ["us-east-1", "eu-central-1"]
+        assert all(c.cwd == APP_DIR for c in commands)
+
+    def test_full_argv(self, env_config, project_config):
+        (command,) = compose_commands(
+            "deploy", "feature-123", env_config, ["us-east-1"], project_config, [], APP_DIR
+        )
+        assert command.argv == [
+            "npx",
+            "cdk",
+            "deploy",
+            "feature-123-us-east-1/*",
+            "--context",
+            "env=feature-123",
+            "--context",
+            "region=us-east-1",
+            "--profile",
+            "account-test",
+        ]
+
+    def test_no_profile_when_unset(self, env_config, project_config):
+        env_config.profile = None
+        (command,) = compose_commands(
+            "synth", "feature-123", env_config, ["us-east-1"], project_config, [], APP_DIR
+        )
+        assert "--profile" not in command.argv
+
+    def test_extra_args_appended_untouched(self, env_config, project_config):
+        (command,) = compose_commands(
+            "deploy",
+            "prod-main",
+            env_config,
+            ["us-east-1"],
+            project_config,
+            ["--require-approval", "never"],
+            APP_DIR,
+        )
+        assert command.argv[-2:] == ["--require-approval", "never"]
+
+    def test_project_config_overrides_shape_the_command(self, env_config):
+        project = ProjectConfig(env_context_key="stage", stack_pattern="{environment}/{region}")
+        (command,) = compose_commands(
+            "diff", "stage-nft", env_config, ["eu-central-1"], project, [], APP_DIR
+        )
+        assert "stage=stage-nft" in command.argv
+        assert command.selector == "stage-nft/eu-central-1"
+
+    def test_display_is_copy_pasteable_with_quoted_selector(self, env_config, project_config):
+        (command,) = compose_commands(
+            "deploy", "feature-123", env_config, ["us-east-1"], project_config, [], APP_DIR
+        )
+        assert command.display.startswith('npx cdk deploy "feature-123-us-east-1/*"')
+        assert "--context env=feature-123" in command.display
