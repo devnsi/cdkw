@@ -1,9 +1,10 @@
 # Design: `cdkw` — a thin CDK wrapper CLI
 
 Design for the custom Python CLI recommended as the fallback in [RESEARCH.md](RESEARCH.md), after
-the [Runway prototype](prototype/README.md) confirmed that per-environment region lists and
-single-region targeting are not first-class there. Requirements come from the
-[README](README.md).
+prototyping confirmed that per-environment region lists and single-region targeting are not
+first-class in off-the-shelf tools (Runway). Requirements come from the [README](README.md);
+the conventions below are validated by the runnable example app in
+[`workspace/`](workspace/README.md), which is the reference the wrapper must drive.
 
 ## Guiding principle: stay close to CDK
 
@@ -62,63 +63,79 @@ test account etc. is data, not code.
 
 ## Configuration
 
-### Per-environment YAML (`config/<environment>.yml`) — already exists
+### Per-environment YAML (`environments/<environment>.yaml`) — already exists
+
+Schema as implemented and validated in
+[`workspace/src/config/environment.py`](workspace/src/config/environment.py) (pydantic model):
 
 ```yaml
-# config/stage-nft.yml
-stage: stage                # test | stage | prod → selects the AWS account
-account: "222222222222"     # or resolved from a stage→account map in project config
-regions: # deployment targets, the single source of truth
-  - us-east-1
-  - eu-central-1
-primary_region: us-east-1   # optional; provides global resources, deployed first
+# environments/stage-nft.yaml
+account: "222222222222"     # AWS account of the stage
+profile: "account-stage"    # optional; AWS profile to use for this account
+stage: stage                # test | stage | prod
+
+regions: # deployment targets, the single source of truth (map, not list)
+  us-east-1:
+    is_primary: true        # provides global resources, deployed first
+  eu-central-1:
+    is_primary: false
 # ... arbitrary app-specific values, passed through to app.py untouched
 ```
 
-Feature environments share `config/dev-feature.yml`; the wrapper instantiates it per feature by
-substituting the resolved environment name (config file lookup: exact name first, then the
-feature fallback).
+The primary region is the entry with `is_primary: true` (derived property, not a separate key);
+region order otherwise follows the map's declaration order. Feature environments share
+[`environments/dev-feature.yaml`](workspace/environments/dev-feature.yaml); config file lookup
+is exact name first (`environments/<env>.yaml`), then `feature-*` names fall back to the shared
+file. Unknown environments fail with a message listing the known ones — the wrapper reuses this
+loader (or mirrors it exactly) rather than inventing a second schema.
 
 ### Project config (`cdkw.yml`, repo root)
 
-Small and optional-by-default:
+Small and optional-by-default; defaults match the workspace conventions:
 
 ```yaml
-config_dir: config
+config_dir: environments
 app_dir: .                  # where cdk.json lives
 branch_pattern: 'feature/[A-Za-z]+-(?P<num>\d+).*'   # → feature-<num>
-env_context_key: stage      # produces: --context stage=<environment>
+env_context_key: env        # produces: --context env=<environment>
 stack_pattern: '{environment}-{region}/*'            # cdk stack selector template
-accounts: # stage → account map (if not in each env file)
-  test: "111111111111"
-  stage: "222222222222"
-  prod: "333333333333"
+feature_fallback: dev-feature                        # shared config for feature-* envs
 ```
+
+Accounts and profiles live in each environment file (no stage→account map needed).
 
 ## Command composition
 
 For each (environment, region) pair, in order, the wrapper runs:
 
 ```sh
-CDK_DEPLOY_REGION=<region> \
-cdk <verb> '<stack selector>' \
-    --context stage=<environment> \
+cdk <verb> '<environment>-<region>/*' \
+    --context env=<environment> \
     --context region=<region> \
+    --profile <profile> \
     <extra args>
 ```
 
-- The environment reaches `app.py` via `--context` (matching the existing `--env stage=...`
-  convention — the exact key is `env_context_key`). Region goes via context *and* env var so
-  `app.py` can keep its current lookup.
-- `app.py` remains the owner of stack construction: it reads the same YAML, synthesizes only the
-  stacks for the requested (environment, region) — exactly as validated in the prototype's
-  [`app.py`](prototype/app.cdk/app.py). The wrapper never parses templates.
-- Stack selector comes from `stack_pattern`, so naming conventions stay in config.
+- The environment reaches `app.py` via `--context env=...` (key configurable as
+  `env_context_key`). Region also goes via context; `app.py` additionally honors
+  `CDK_DEPLOY_REGION`, but context wins, so the wrapper only sets the context.
+- `--profile` is added when the environment config specifies one; otherwise the ambient
+  credentials apply.
+- `app.py` remains the owner of stack construction: it reads the same YAML and creates one
+  `cdk.Stage` named `<environment>-<region>` per configured region, narrowing to the single
+  requested region when the `region` context is set — exactly as validated in
+  [`workspace/src/app.py`](workspace/src/app.py). It also validates that the requested region
+  is configured for the environment, so wrapper and app agree on errors. The wrapper never
+  parses templates.
+- Stack selector comes from `stack_pattern` (default `{environment}-{region}/*`, matching the
+  workspace's stage naming), so naming conventions stay in config.
 - Regions run **sequentially**; a failure stops the sequence (later regions may depend on the
   primary region's global resources). `--continue-on-error` can be added later if needed.
 - Exit code: the first failing `cdk` exit code, passed through unchanged.
 
 ## Ordering rules
+
+"Config order" is the declaration order of the `regions` map in the environment YAML.
 
 | verb                    | default region order                                         |
 |-------------------------|--------------------------------------------------------------|
@@ -181,7 +198,7 @@ The echoed command line and CDK's own output stay fully visible (reproducibility
 promise), but styled to recede:
 
 - The composed command is printed **bold** before each region run, prefixed with `$`, exactly
-  copy-pasteable (env vars included).
+  copy-pasteable.
 - CDK stdout/stderr streams through live, dimmed and indented under the region's task line,
   prefixed with the region (`eu-central-1 │ …`) so interleaving stays legible in logs.
 - `diff` output is the exception: it is the *product* of the command, so it passes through
@@ -217,11 +234,16 @@ rerun just that region without scrolling back.
 
 ## Implementation notes
 
-- **Language/stack**: Python ≥3.12, [typer](https://typer.tiangolo.com/) for the CLI, `pyyaml`,
-  `subprocess.run` shelling out to the `cdk` CLI (npm-installed, local dep preferred). No CDK
-  Toolkit Library — it is TypeScript-only (see RESEARCH.md).
+- **Language/stack**: Python ≥3.14 managed with uv (matching the workspace),
+  [typer](https://typer.tiangolo.com/) for the CLI, `pyyaml` + `pydantic` for config (same
+  models as the workspace's `EnvironmentConfig`), `subprocess.run` shelling out to the `cdk`
+  CLI via `npx cdk` (npm dependency, no global install). No CDK Toolkit Library — it is
+  TypeScript-only (see RESEARCH.md).
 - **Windows-safe**: invoke `cdk` via its resolved `.cmd` shim / `npx.cmd`; never rely on bare
-  `python` in `cdk.json` (prototype lesson: use an explicit interpreter path).
+  `python` in `cdk.json` — the workspace's `cdk.json` uses `uv run python -m src.app` as the
+  explicit interpreter. Known cosmetic issue: on Windows, jsii sometimes prints an `ENOTEMPTY`
+  temp-dir cleanup error *after* a successful synth — the wrapper must key success off the exit
+  code / `Successfully synthesized`, not the presence of stderr noise.
 - **Testing**: unit-test environment resolution, region ordering, and command composition as pure
   functions (given config + args → list of command lines). Integration = `--dry-run` snapshot
   tests; no AWS needed.
@@ -233,9 +255,10 @@ rerun just that region without scrolling back.
 
 ## Out of scope (v1)
 
-- Credential/profile management — users bring their own `AWS_PROFILE`/SSO session; the wrapper
-  only *checks* that the resolved account matches `cdk`'s target and fails fast on mismatch
-  (nice-to-have, not required for v1).
+- Credential management — the wrapper passes the environment's configured `profile` as
+  `--profile` but does not log in or refresh SSO sessions; users bring their own. Checking that
+  the resolved account matches `cdk`'s target and failing fast on mismatch is a nice-to-have,
+  not required for v1.
 - Cross-environment orchestration (deploy several environments in one run).
 - Parallel region deploys — sequential is a feature (primary-first ordering).
 - Bootstrapping (`cdk bootstrap`) — can be run manually; may become a verb later.
