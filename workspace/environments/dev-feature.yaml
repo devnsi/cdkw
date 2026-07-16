@@ -1,0 +1,9 @@
+account: "12345"
+profile: "account-test"
+stage: "test"
+
+regions:
+  eu-central-1:
+    is_primary: true
+  us-east-1:
+    is_primary: false

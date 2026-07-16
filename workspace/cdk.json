@@ -1,0 +1,5 @@
+{
+  "app": "python -m src.app",
+  "versionReporting": false,
+  "cli-telemetry": false
+}
