@@ -45,7 +45,7 @@ class ProjectConfig(BaseModel):
     app_dir: str = "."
     branch_pattern: str = r"feature/[A-Za-z]+-(?P<num>\d+).*"
     env_context_key: str = "env"
-    stack_pattern: str = "{environment}-{region}/*"
+    stack_pattern: str = "{environment}-{region_short}/*"
     feature_fallback: str = "dev-feature"
 
 

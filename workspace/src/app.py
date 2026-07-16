@@ -3,7 +3,7 @@ import os
 import aws_cdk as cdk
 from constructs import Construct
 
-from src.config.environment import EnvironmentConfig
+from src.config.environment import EnvironmentConfig, region_short
 
 
 class AppStage(cdk.Stage):
@@ -35,7 +35,7 @@ def main() -> None:
             continue
         AppStage(
             app,
-            f"{env_name}-{region}",
+            f"{env_name}-{region_short(region)}",
             env_name=env_name,
             region=region,
             env=cdk.Environment(account=config.account, region=region),

@@ -1,7 +1,10 @@
 from pathlib import Path
 
+import pytest
+
 from cdkw.compose import compose_commands
 from cdkw.config import ProjectConfig
+from cdkw.errors import CdkwError
 
 APP_DIR = Path("app")
 
@@ -22,7 +25,7 @@ class TestComposition:
             "npx",
             "cdk",
             "deploy",
-            "feature-123-us-east-1/*",
+            "feature-123-use1/*",
             "--context",
             "env=feature-123",
             "--context",
@@ -58,9 +61,25 @@ class TestComposition:
         assert "stage=stage-nft" in command.argv
         assert command.selector == "stage-nft/eu-central-1"
 
+    def test_region_pattern_tolerates_unabbreviatable_region_keys(self, env_config):
+        env_config.regions["local"] = type(env_config.regions["us-east-1"])()
+        project = ProjectConfig(stack_pattern="{environment}-{region}/*")
+        (command,) = compose_commands(
+            "synth", "feature-123", env_config, ["local"], project, [], APP_DIR
+        )
+        assert command.selector == "feature-123-local/*"
+
+    def test_colliding_shortcodes_error_before_any_command(self, env_config, project_config):
+        env_config.regions["ap-southwest-1"] = type(env_config.regions["ap-south-1"])()
+        env_config.regions["ap-so-west-1"] = type(env_config.regions["ap-south-1"])()
+        with pytest.raises(CdkwError, match="collide"):
+            compose_commands(
+                "deploy", "feature-123", env_config, ["us-east-1"], project_config, [], APP_DIR
+            )
+
     def test_display_is_copy_pasteable_with_quoted_selector(self, env_config, project_config):
         (command,) = compose_commands(
             "deploy", "feature-123", env_config, ["us-east-1"], project_config, [], APP_DIR
         )
-        assert command.display.startswith('npx cdk deploy "feature-123-us-east-1/*"')
+        assert command.display.startswith('npx cdk deploy "feature-123-use1/*"')
         assert "--context env=feature-123" in command.display

@@ -2,7 +2,13 @@ import pytest
 
 from cdkw.config import ProjectConfig
 from cdkw.errors import CdkwError
-from cdkw.resolve import default_region_order, order_regions, resolve_environment
+from cdkw.resolve import (
+    default_region_order,
+    order_regions,
+    region_short,
+    region_shortcodes,
+    resolve_environment,
+)
 
 PATTERN = ProjectConfig().branch_pattern
 
@@ -89,3 +95,34 @@ class TestRegionOrdering:
             "eu-central-1",
             "us-east-1",
         ]
+
+
+class TestRegionShort:
+    @pytest.mark.parametrize(
+        ("region", "short"),
+        [
+            ("us-east-1", "use1"),
+            ("eu-central-1", "euc1"),
+            ("ap-south-1", "aps1"),
+            ("ap-southeast-1", "apse1"),
+            ("us-gov-east-1", "usge1"),
+            ("us-gov-west-1", "usgw1"),
+            ("cn-north-1", "cnn1"),
+            ("cn-northwest-1", "cnnw1"),
+        ],
+    )
+    def test_known_regions(self, region, short):
+        assert region_short(region) == short
+
+    def test_malformed_region_errors(self):
+        with pytest.raises(CdkwError, match="cannot abbreviate"):
+            region_short("local")
+
+    def test_shortcodes_map_per_region(self):
+        codes = region_shortcodes(["us-east-1", "ap-southeast-1"])
+        assert codes == {"us-east-1": "use1", "ap-southeast-1": "apse1"}
+
+    def test_shortcode_collision_errors(self):
+        # eu-costly-1 is not a real region; real names no longer collide, so force one.
+        with pytest.raises(CdkwError, match="eu-central-1.*eu-costly-1.*euc1"):
+            region_shortcodes(["eu-central-1", "eu-costly-1"])

@@ -2,13 +2,40 @@
 
 import re
 import subprocess
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 from cdkw.config import EnvironmentConfig
 from cdkw.errors import CdkwError
 
 MUTATING_VERBS = frozenset({"deploy", "destroy"})
+
+_COMPOUND_DIRECTIONS = {"northeast": "ne", "northwest": "nw", "southeast": "se", "southwest": "sw"}
+
+
+def region_short(region: str) -> str:
+    """Abbreviate an AWS region name: us-east-1 → use1, ap-southeast-1 → apse1."""
+    parts = region.split("-")
+    if len(parts) < 3:
+        raise CdkwError(f"cannot abbreviate region '{region}': expected a name like 'us-east-1'")
+    return parts[0] + "".join(_COMPOUND_DIRECTIONS.get(p, p[:1]) for p in parts[1:-1]) + parts[-1]
+
+
+def region_shortcodes(regions: Iterable[str]) -> dict[str, str]:
+    """Shortcode per region, refusing collisions (two regions → one selector/stage id)."""
+    by_short: dict[str, str] = {}
+    codes: dict[str, str] = {}
+    for region in regions:
+        short = region_short(region)
+        clash = by_short.get(short)
+        if clash:
+            raise CdkwError(
+                f"region shortcodes collide: '{clash}' and '{region}' both abbreviate to "
+                f"'{short}' — use {{region}} in stack_pattern"
+            )
+        by_short[short] = region
+        codes[region] = short
+    return codes
 
 
 def current_git_branch(cwd: Path) -> str | None:

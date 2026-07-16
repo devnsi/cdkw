@@ -6,6 +6,16 @@ from pydantic import BaseModel
 ENVIRONMENTS_DIR = Path(__file__).resolve().parents[2] / "environments"
 FEATURE_FALLBACK = "dev-feature"
 
+_COMPOUND_DIRECTIONS = {"northeast": "ne", "northwest": "nw", "southeast": "se", "southwest": "sw"}
+
+
+def region_short(region: str) -> str:
+    """Abbreviate an AWS region name: us-east-1 → use1, ap-southeast-1 → apse1."""
+    parts = region.split("-")
+    if len(parts) < 3:
+        raise SystemExit(f"cannot abbreviate region '{region}': expected a name like 'us-east-1'")
+    return parts[0] + "".join(_COMPOUND_DIRECTIONS.get(p, p[:1]) for p in parts[1:-1]) + parts[-1]
+
 
 class RegionConfig(BaseModel):
     is_primary: bool = False

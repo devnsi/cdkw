@@ -98,18 +98,24 @@ config_dir: environments
 app_dir: .                  # where cdk.json lives
 branch_pattern: 'feature/[A-Za-z]+-(?P<num>\d+).*'   # → feature-<num>
 env_context_key: env        # produces: --context env=<environment>
-stack_pattern: '{environment}-{region}/*'            # cdk stack selector template
+stack_pattern: '{environment}-{region_short}/*'      # cdk stack selector template
 feature_fallback: dev-feature                        # shared config for feature-* envs
 ```
 
 Accounts and profiles live in each environment file (no stage→account map needed).
+
+`stack_pattern` may use `{environment}`, `{region}` (full name), and `{region_short}` — an
+abbreviated region derived by `cdkw.resolve.region_short`: prefix and trailing number kept,
+each middle word contributing its first letter, compound directions two (`us-east-1` → `use1`,
+`ap-south-1` → `aps1`, `ap-southeast-1` → `apse1`, `us-gov-west-1` → `usgw1`). The wrapper
+refuses to compose commands when two configured regions would collide on a shortcode.
 
 ## Command composition
 
 For each (environment, region) pair, in order, the wrapper runs:
 
 ```sh
-cdk <verb> '<environment>-<region>/*' \
+cdk <verb> '<environment>-<region_short>/*' \
     --context env=<environment> \
     --context region=<region> \
     --profile <profile> \
@@ -122,13 +128,16 @@ cdk <verb> '<environment>-<region>/*' \
 - `--profile` is added when the environment config specifies one; otherwise the ambient
   credentials apply.
 - `app.py` remains the owner of stack construction: it reads the same YAML and creates one
-  `cdk.Stage` named `<environment>-<region>` per configured region, narrowing to the single
+  `cdk.Stage` named `<environment>-<region_short>` per configured region, narrowing to the single
   requested region when the `region` context is set — exactly as validated in
   [`workspace/src/app.py`](workspace/src/app.py). It also validates that the requested region
   is configured for the environment, so wrapper and app agree on errors. The wrapper never
   parses templates.
-- Stack selector comes from `stack_pattern` (default `{environment}-{region}/*`, matching the
-  workspace's stage naming), so naming conventions stay in config.
+- Stack selector comes from `stack_pattern` (default `{environment}-{region_short}/*`, matching
+  the workspace's stage naming), so naming conventions stay in config. The app's stage ids must
+  be derived with the same `region_short` rule — the workspace keeps its copy in
+  [`workspace/src/config/environment.py`](workspace/src/config/environment.py), pinned to the
+  wrapper's by a test.
 - Regions run **sequentially**; a failure stops the sequence (later regions may depend on the
   primary region's global resources). `--continue-on-error` can be added later if needed.
 - Exit code: the first failing `cdk` exit code, passed through unchanged.
@@ -163,8 +172,8 @@ cdkw deploy stage-nft --all-regions
   regions      us-east-1 ★, eu-central-1   (★ primary, deployed first)
 
   plan  2 × cdk deploy
-    1. us-east-1     stage-nft-us-east-1/*
-    2. eu-central-1  stage-nft-eu-central-1/*
+    1. us-east-1     stage-nft-use1/*
+    2. eu-central-1  stage-nft-euc1/*
 ```
 
 When the environment came from the git branch, say so explicitly — silent inference is how

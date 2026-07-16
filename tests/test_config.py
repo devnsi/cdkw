@@ -60,7 +60,7 @@ class TestProjectConfig:
         config = ProjectConfig()
         assert config.config_dir == "environments"
         assert config.env_context_key == "env"
-        assert config.stack_pattern == "{environment}-{region}/*"
+        assert config.stack_pattern == "{environment}-{region_short}/*"
         assert config.feature_fallback == "dev-feature"
 
     def test_missing_file_yields_defaults(self, tmp_path):

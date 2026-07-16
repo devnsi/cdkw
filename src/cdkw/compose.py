@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from cdkw.config import EnvironmentConfig, ProjectConfig
+from cdkw.resolve import region_shortcodes
 
 
 @dataclass(frozen=True)
@@ -40,9 +41,15 @@ def compose_commands(
     The region reaches app.py via --context only (app.py also honors CDK_DEPLOY_REGION,
     but context wins, so the wrapper sets nothing else).
     """
+    uses_short = "{region_short}" in project.stack_pattern
+    shorts = region_shortcodes(env_config.regions) if uses_short else {}
     commands = []
     for region in regions:
-        selector = project.stack_pattern.format(environment=env_name, region=region)
+        selector = project.stack_pattern.format(
+            environment=env_name,
+            region=region,
+            region_short=shorts[region] if uses_short else "",
+        )
         argv = [
             "npx",
             "cdk",
