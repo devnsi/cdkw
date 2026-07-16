@@ -2,6 +2,23 @@
 
 A CLI tool to manage AWS CDK deployments across multiple stages, environments, and regions.
 
+## Installation
+
+Run directly from GitHub with [uvx](https://docs.astral.sh/uv/guides/tools/) (no install step):
+
+```sh
+uvx --from git+https://github.com/devnsi/cdkw cdkw --help
+```
+
+Or install it as a persistent tool:
+
+```sh
+uv tool install git+https://github.com/devnsi/cdkw
+cdkw --help
+```
+
+Requires Python >= 3.14 (uv provisions it automatically if missing).
+
 ## Background
 
 AWS CDK is a framework to describe AWS resources for provisioning. It comes as a Python library to
@@ -26,16 +43,17 @@ Plain CDK commands do not cover this combinatorial space well, which is the gap 
 
 ## Configuration model
 
-Each environment is described by its own YAML file, which captures the differences per environment
-(e.g. a `region` key listing the target regions). The exception is feature environments: they share
-a single common YAML file that is instantiated per feature.
+Each environment is described by its own YAML file (`environments/<environment>.yaml`), which
+captures the differences per environment: the AWS account and stage, an optional AWS profile, and
+a `regions` map marking the primary region. The exception is feature environments: they share a
+single common YAML file that is instantiated per feature. The full schema — plus the optional
+project-level `cdkw.yml` — is specified in [DESIGN.md](DESIGN.md#configuration).
 
 Example YAML files:
 
 - `dev-feature` (with region: us-east-1) — shared by all feature environments
 - `test-main`
 - `stage-main`
-- `stage-nft` (with regions: us-east-1, eu-central-1)
 - `prod-main` (with regions: us-east-1, eu-central-1)
 
 Which yields concrete deployments such as:
@@ -44,7 +62,6 @@ Which yields concrete deployments such as:
 - `feature-234` on test (based on the shared feature config, in account A)
 - `test-main` on test (in account A)
 - `stage-main` on stage (in account B)
-- `stage-nft` on stage (in account B)
 - `prod-main` on prod (in account C)
 
 ## Deployment mechanics
@@ -52,20 +69,25 @@ Which yields concrete deployments such as:
 - Each region of an environment is synthesized as its own template (an independent CDK stage).
 - There can be a **primary region** providing global resources; it should usually be deployed first.
 - Since multiple logical environments live in the same account, the environment is passed to CDK
-  commands as a parameter: `--env stage=feature-123`.
+  commands as a parameter: `--context env=feature-123`.
 - The currently active feature environment can be derived from the git branch name
   (e.g. `feature/ABC-123-some-test` → `feature-123`).
 
-## Requirements for the tool
+## Usage
 
-- Granular control over which environment is deployed to which region — e.g. deploy `test-main`
-  to `us-east-1`, then `us-west-1`, one at a time.
-- Support the common CDK commands (`synth`, `diff`, `deploy`, `destroy`) for each
-  environment/region combination.
+`cdkw` mirrors the CDK verbs (`synth`, `diff`, `deploy`, `destroy`, `list`) and gives granular
+control over which environment goes to which region, one region at a time. Every run prints the
+composed `cdk` command lines before executing them, so the raw CDK calls stay visible and
+reproducible.
 
-## Approach
+```sh
+cdkw diff                                  # environment from git branch, all its regions
+cdkw deploy test-main -r us-east-1         # one environment, one region
+cdkw deploy test-main -r us-east-1 -r us-west-1   # explicit sequence
+cdkw deploy stage-nft --all-regions        # primary region first, then the rest
+cdkw destroy feature-123 --all-regions     # reverse order: primary last
+cdkw deploy prod-main -r eu-central-1 -- --require-approval never   # pass-through args
+```
 
-We were previously using modular justfile recipes to bridge the gap between simple CDK commands and
-multi-regional, multi-stage, multi-environment deployments, but the combinatorics call for more
-generalized CLI tooling. This could be either an existing open-source tool (if any supports these
-use cases) or a custom Python CLI/TUI.
+`cdkw <verb> --help` lists all options (`--dry-run`, `--quiet`, `--plain`, …); the full CLI
+contract lives in [DESIGN.md](DESIGN.md#cli-surface).

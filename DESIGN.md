@@ -1,9 +1,7 @@
 # Design: `cdkw` — a thin CDK wrapper CLI
 
-Design for the custom Python CLI recommended as the fallback in [RESEARCH.md](RESEARCH.md), after
-prototyping confirmed that per-environment region lists and single-region targeting are not
-first-class in off-the-shelf tools (Runway). Requirements come from the [README](README.md);
-the conventions below are validated by the runnable example app in
+Design for the custom Python CLI. Background, terminology, and usage live in the
+[README](README.md); the conventions below are validated by the runnable example app in
 [`workspace/`](workspace/README.md), which is the reference the wrapper must drive.
 
 ## Guiding principle: stay close to CDK
@@ -39,16 +37,7 @@ cdkw <verb> [ENVIRONMENT] [--region REGION]... [--all-regions] [-- <extra cdk ar
   one-region-at-a-time control is the core requirement, so mutating verbs never fan out silently.
 - **`--dry-run`**: print the composed `cdk` commands without executing.
 
-Examples:
-
-```sh
-cdkw diff                                  # env from branch, all its regions
-cdkw deploy test-main -r us-east-1         # one env, one region
-cdkw deploy test-main -r us-east-1 -r us-west-1   # explicit sequence
-cdkw deploy stage-nft --all-regions        # primary first, then the rest
-cdkw destroy feature-123 --all-regions     # reverse order: primary last
-cdkw deploy prod-main -r eu-central-1 -- --require-approval never
-```
+Worked examples for each of these are in the [README](README.md#usage).
 
 ## Environment resolution
 
@@ -215,7 +204,7 @@ promise), but styled to recede:
 
 ### 4. Summary
 
-After the last region, an npm-audit-style one-glance summary with per-region timing and the
+After the last region, a npm-audit-style one-glance summary with per-region timing and the
 overall exit state:
 
 ```
@@ -250,19 +239,15 @@ rerun just that region without scrolling back.
   TypeScript-only (see RESEARCH.md).
 - **Windows-safe**: invoke `cdk` via its resolved `.cmd` shim / `npx.cmd`; never rely on bare
   `python` in `cdk.json` — the workspace's `cdk.json` uses `uv run python -m src.app` as the
-  explicit interpreter. Known cosmetic issue: on Windows, jsii sometimes prints an `ENOTEMPTY`
-  temp-dir cleanup error *after* a successful synth — the wrapper must key success off the exit
-  code / `Successfully synthesized`, not the presence of stderr noise.
+  explicit interpreter. The wrapper must key success off the exit code, not the presence of
+  stderr noise (see the jsii `ENOTEMPTY` quirk in [workspace/README.md](workspace/README.md)).
 - **Testing**: unit-test environment resolution, region ordering, and command composition as pure
   functions (given config + args → list of command lines). Integration = `--dry-run` snapshot
   tests; no AWS needed.
 - **Packaging**: single package `cdkw`, installable with `uv tool install` / `pipx`; entry point
   `cdkw`.
-- **TUI (later, optional)**: an interactive picker (environment → region checklist → verb) on top
-  of the same composition core, e.g. with textual. Not in scope for v1 — the CLI must be complete
-  and scriptable first.
 
-## Out of scope (v1)
+## Out of scope
 
 - Credential management — the wrapper passes the environment's configured `profile` as
   `--profile` but does not log in or refresh SSO sessions; users bring their own. Checking that

@@ -2,24 +2,28 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Status
+## What this is
 
-Greenfield project — no code exists yet, only the README describing the goal. There is no build system, test runner, or linter to document until the implementation approach is chosen.
+`cdkw`, a Python CLI wrapping AWS CDK commands for multi-stage, multi-environment, multi-region
+deployments. Docs are split by audience — don't duplicate content across them:
 
-## Goal
+- [README.md](README.md) — user-facing: what/why, terminology, installation, usage.
+- [DESIGN.md](DESIGN.md) — the behavior contract: CLI surface, config schemas, command
+  composition, ordering rules, output design. Consult it before changing wrapper behavior.
+- [workspace/README.md](workspace/README.md) — the runnable example CDK app the wrapper drives;
+  the reference for the conventions the wrapper must match.
 
-Build a CLI/TUI tool (likely Python, or an evaluated off-the-shelf alternative) that wraps AWS CDK commands (`synth`, `diff`, `deploy`, `destroy`) to manage multi-stage, multi-environment, multi-region deployments. It replaces a set of modular justfile recipes that became unwieldy due to combinatorics.
+## Layout & commands
 
-## Domain Terminology (important — terms are easily confused)
+- `src/cdkw/` — the wrapper (typer CLI); `tests/` — pure-function unit tests plus `--dry-run`
+  snapshot tests, no AWS needed.
+- Run tests: `uv run pytest`
+- Real end-to-end runs: from `workspace/`, e.g. `uv run --project .. cdkw synth feature-123`
+  (cdkw finds the project root via `cdk.json`/`cdkw.yml`; the workspace needs `uv sync` and npm's
+  CDK CLI once).
 
-- **Stage**: one of `test`, `stage`, `prod` — differentiated by separate AWS accounts (e.g. account A = test, account B = stage, account C = prod). Not the same as a CDK stage.
-- **Environment**: a full standalone provisioning of the application (e.g. `feature-123`, `stage-main`, `stage-nft`). Multiple logical environments can live in the same account/stage.
-- Each environment has its own YAML config file, **except** feature environments, which share a common config instantiated per feature.
-- Each environment can deploy to up to 4 regions (a `region` key in its YAML). Each region per environment is synthesized as its own template (independent CDK stage). A **primary region** may provide global resources and should usually be deployed first.
+## Terminology trap
 
-## Key Mechanics
-
-- CDK runs `app.py` to synthesize templates from Python code.
-- Logical environments in the same account are differentiated by a parameter passed to CDK commands: `--env stage=feature-123`.
-- The active feature environment can be derived from the git branch name (e.g. `feature/ABC-123-some-test` → `feature-123`).
-- The tool must give granular control over which environment deploys to which region, one region at a time (e.g. deploy `test-main` to `us-east-1`, then `us-west-1`).
+**Stage** here means `test`/`stage`/`prod` — a separate AWS account. It is *not* a CDK stage
+(each environment+region pair is its own CDK stage). Full definitions in the
+[README](README.md#terminology).
