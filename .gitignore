@@ -2,3 +2,4 @@
 .venv
 cdk.out
 *.iml
+__pycache__

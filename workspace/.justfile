@@ -13,5 +13,4 @@ default:
 # Synthesize the template for the environment.
 [script]
 synth:
-    derived="feature-123"
-    cdk diff "$derived*/*" --context env=dev-feature
+    cdk diff "feature-123*/*" --context env=feature-123

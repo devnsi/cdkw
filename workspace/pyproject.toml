@@ -5,5 +5,7 @@ description = "example workspace for the cdk wrapper"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    # TODO aws_cli etc.
+    "aws-cdk-lib>=2.220",
+    "pydantic>=2.11",
+    "pyyaml>=6.0",
 ]

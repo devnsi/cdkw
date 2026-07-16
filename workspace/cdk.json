@@ -1,5 +1,5 @@
 {
-  "app": "python -m src.app",
+  "app": "uv run python -m src.app",
   "versionReporting": false,
   "cli-telemetry": false
 }
