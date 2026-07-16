@@ -24,7 +24,7 @@ commands are the migration path back to plain CDK.
 cdkw <verb> [ENVIRONMENT] [--region REGION]... [--all-regions] [-- <extra cdk args>]
 ```
 
-- **Verbs**: `synth`, `diff`, `deploy`, `destroy`, `list` — 1:1 with CDK. Unknown trailing args
+- **Verbs**: `synth`, `diff`, `deploy`, `destroy`, `list`, `watch` — 1:1 with CDK. Unknown trailing args
   after `--` pass through to `cdk` untouched (e.g. `--require-approval never`, `--exclusively`).
 - **`ENVIRONMENT`** (optional positional): e.g. `test-main`, `stage-nft`, `feature-123`. When
   omitted, derived from the git branch (`feature/ABC-123-some-test` → `feature-123`); error out
@@ -33,8 +33,10 @@ cdkw <verb> [ENVIRONMENT] [--region REGION]... [--all-regions] [-- <extra cdk ar
   order**. Must be in the environment's configured region list, else error.
 - **`--all-regions`**: iterate all configured regions, **primary region first** (for `destroy`:
   primary **last**). Default when no `--region` is given for `synth`/`diff`/`list`; for
-  `deploy`/`destroy` a region must be chosen explicitly or confirmed interactively — granular
-  one-region-at-a-time control is the core requirement, so mutating verbs never fan out silently.
+  `deploy`/`destroy`/`watch` a region must be chosen explicitly or confirmed interactively —
+  granular one-region-at-a-time control is the core requirement, so mutating verbs never fan out
+  silently. `watch` runs until interrupted, so it targets exactly **one** region: `--all-regions`
+  and multiple `--region` values are errors, and the interactive prompt is a single pick.
 - **`--dry-run`**: print the composed `cdk` commands without executing.
 
 Worked examples for each of these are in the [README](README.md#usage).
@@ -140,6 +142,7 @@ cdk <verb> '<environment>-<region_short>/*' \
 | `synth`, `diff`, `list` | primary first, then config order                             |
 | `deploy`                | primary first, then config order (only with `--all-regions`) |
 | `destroy`               | reverse: config order reversed, primary **last**             |
+| `watch`                 | exactly one region (explicit `--region` or interactive pick) |
 
 ## User experience & output design
 

@@ -49,6 +49,11 @@ class TestDryRun:
         output = combined_output(result)
         assert output.index("use1/*") < output.index("euc1/*")
 
+    def test_watch_single_region(self):
+        result = runner.invoke(app, ["watch", "feature-123", "-r", "us-east-1", "--dry-run", "--plain"])
+        assert result.exit_code == 0, combined_output(result)
+        assert '$ npx cdk watch "feature-123-use1/*"' in combined_output(result)
+
     def test_extra_args_pass_through(self):
         result = runner.invoke(
             app,
@@ -95,6 +100,16 @@ class TestErrors:
         result = runner.invoke(app, ["deploy", "feature-123"])
         assert result.exit_code == 2
         assert "--region or --all-regions" in combined_output(result)
+
+    def test_watch_without_region_fails_without_tty(self):
+        result = runner.invoke(app, ["watch", "feature-123"])
+        assert result.exit_code == 2
+        assert "pass --region" in combined_output(result)
+
+    def test_watch_all_regions_fails(self):
+        result = runner.invoke(app, ["watch", "feature-123", "--all-regions", "--plain"])
+        assert result.exit_code == 2
+        assert "single region" in combined_output(result)
 
     def test_unknown_region(self):
         result = runner.invoke(app, ["synth", "feature-123", "-r", "mars-1", "--plain"])

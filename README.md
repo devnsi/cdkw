@@ -75,7 +75,7 @@ Which yields concrete deployments such as:
 
 ## Usage
 
-`cdkw` mirrors the CDK verbs (`synth`, `diff`, `deploy`, `destroy`, `list`) and gives granular
+`cdkw` mirrors the CDK verbs (`synth`, `diff`, `deploy`, `destroy`, `list`, `watch`) and gives granular
 control over which environment goes to which region, one region at a time. Every run prints the
 composed `cdk` command lines before executing them, so the raw CDK calls stay visible and
 reproducible.
@@ -87,6 +87,7 @@ cdkw deploy test-main -r us-east-1 -r us-west-1   # explicit sequence
 cdkw deploy stage-nft --all-regions        # primary region first, then the rest
 cdkw destroy feature-123 --all-regions     # reverse order: primary last
 cdkw deploy prod-main -r eu-central-1 -- --require-approval never   # pass-through args
+cdkw watch feature-123 -r us-east-1        # hot-deploy one region until interrupted
 ```
 
 `cdkw <verb> --help` lists all options (`--dry-run`, `--quiet`, `--plain`, …); the full CLI

@@ -16,6 +16,7 @@ from cdkw.config import (
 )
 from cdkw.errors import CdkwError
 from cdkw.resolve import (
+    SINGLE_REGION_VERBS,
     current_git_branch,
     default_region_order,
     order_regions,
@@ -36,6 +37,7 @@ VERB_HELP = {
     "diff": "Diff deployed stacks against the synthesized state.",
     "deploy": "Deploy one region at a time (explicit --region, --all-regions, or interactive pick).",
     "destroy": "Destroy one region at a time; --all-regions runs in reverse order, primary last.",
+    "watch": "Watch for changes and hot-deploy a single region (runs until interrupted).",
     "list": "List the stacks per region.",
 }
 
@@ -148,11 +150,11 @@ def _run_verb(
 
 def _pick_regions(verb: str, env_name: str, env_config: EnvironmentConfig, plain: bool) -> list[str]:
     """Interactive checklist for mutating verbs without a region selection; hard error otherwise."""
+    single = verb in SINGLE_REGION_VERBS
     interactive = sys.stdin.isatty() and sys.stdout.isatty() and not plain
     if not interactive:
-        raise CdkwError(
-            f"cdk {verb} does not fan out silently — pass --region or --all-regions"
-        )
+        hint = "pass --region" if single else "pass --region or --all-regions"
+        raise CdkwError(f"cdk {verb} does not fan out silently — {hint}")
     import questionary
 
     ordered = default_region_order(env_config, verb)
@@ -161,9 +163,13 @@ def _pick_regions(verb: str, env_name: str, env_config: EnvironmentConfig, plain
         questionary.Choice(title=f"{name} (primary)" if name == primary else name, value=name)
         for name in ordered
     ]
-    selected = questionary.checkbox(
-        f"{verb} {env_name} — select regions (listed in run order):", choices=choices
-    ).ask()
+    if single:
+        picked = questionary.select(f"{verb} {env_name} — select a region:", choices=choices).ask()
+        selected = [picked] if picked else None
+    else:
+        selected = questionary.checkbox(
+            f"{verb} {env_name} — select regions (listed in run order):", choices=choices
+        ).ask()
     if not selected:
         raise CdkwError("no regions selected — aborted")
     return selected

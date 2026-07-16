@@ -83,6 +83,18 @@ class TestRegionOrdering:
     def test_mutating_verbs_require_selection(self, env_config):
         assert order_regions(env_config, "deploy", [], False) is None
         assert order_regions(env_config, "destroy", [], False) is None
+        assert order_regions(env_config, "watch", [], False) is None
+
+    def test_watch_accepts_a_single_region(self, env_config):
+        assert order_regions(env_config, "watch", ["us-east-1"], False) == ["us-east-1"]
+
+    def test_watch_rejects_multiple_regions(self, env_config):
+        with pytest.raises(CdkwError, match="single region"):
+            order_regions(env_config, "watch", ["us-east-1", "eu-central-1"], False)
+
+    def test_watch_rejects_all_regions(self, env_config):
+        with pytest.raises(CdkwError, match="single region"):
+            order_regions(env_config, "watch", [], True)
 
     def test_all_regions_flag_unlocks_mutating_verbs(self, env_config):
         assert order_regions(env_config, "deploy", [], True) == [

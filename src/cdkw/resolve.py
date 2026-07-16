@@ -8,7 +8,8 @@ from pathlib import Path
 from cdkw.config import EnvironmentConfig
 from cdkw.errors import CdkwError
 
-MUTATING_VERBS = frozenset({"deploy", "destroy"})
+MUTATING_VERBS = frozenset({"deploy", "destroy", "watch"})
+SINGLE_REGION_VERBS = frozenset({"watch"})
 
 _COMPOUND_DIRECTIONS = {"northeast": "ne", "northwest": "nw", "southeast": "se", "southwest": "sw"}
 
@@ -102,6 +103,9 @@ def order_regions(
     non-mutating verbs) uses the primary-first ordering. Mutating verbs without a selection
     return None so the CLI can prompt interactively or fail.
     """
+    if verb in SINGLE_REGION_VERBS:
+        if all_regions or len(requested) > 1:
+            raise CdkwError(f"cdk {verb} runs a single region until interrupted — pass one --region")
     if requested:
         unknown = [r for r in requested if r not in config.regions]
         if unknown:
