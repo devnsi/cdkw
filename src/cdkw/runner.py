@@ -1,5 +1,6 @@
 """Sequential execution of composed cdk commands with live, prefixed streaming."""
 
+import os
 import shutil
 import subprocess
 import time
@@ -49,11 +50,15 @@ def run_commands(commands: list[CdkCommand], ui: UI) -> list[RegionResult]:
 
 def _run_one(command: CdkCommand, npx: str, ui: UI) -> tuple[int, float]:
     argv = [npx, *command.argv[1:]]
+    env = None
+    if command.argv[2] == "diff" and ui.fancy and "NO_COLOR" not in os.environ:
+        env = {**os.environ, "FORCE_COLOR": "1"}
     start = time.monotonic()
     try:
         process = subprocess.Popen(
             argv,
             cwd=command.cwd,
+            env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,

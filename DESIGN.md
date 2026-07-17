@@ -203,7 +203,9 @@ promise), but styled to recede:
 - CDK stdout/stderr streams through live, dimmed and indented under the region's task line,
   prefixed with the region (`eu-central-1 │ …`) so interleaving stays legible in logs.
 - `diff` output is the exception: it is the *product* of the command, so it passes through
-  untouched and un-dimmed (CDK already colors it).
+  untouched and un-dimmed. Because the child runs behind pipes, the wrapper sets
+  `FORCE_COLOR=1` for `diff` (only when on a TTY, and never under `--plain`/`NO_COLOR`) so
+  CDK's green/red resource markers survive.
 
 ### 4. Summary
 
