@@ -262,8 +262,9 @@ recognizable, blank otherwise — never blocking on parse success (see "stay clo
 The echoed command line and CDK's own output stay fully visible (reproducibility is the core
 promise), but styled to recede:
 
-- The composed command is printed **bold** before each region run, prefixed with `$`, exactly
-  copy-pasteable.
+- The composed command is printed **bold magenta** before each region run, prefixed with `$`,
+  exactly copy-pasteable — the color singles it out from hook echoes (plain bold) and the
+  dimmed CDK stream. The rerun hint in the failure summary uses the same style.
 - CDK stdout/stderr streams through live, dimmed and indented under the region's task line,
   prefixed with the region (`eu-central-1 │ …`) so interleaving stays legible in logs.
 - `diff` output is the exception: it is the *product* of the command, so it passes through

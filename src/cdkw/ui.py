@@ -126,7 +126,7 @@ class UI:
     # ── per-region progress ─────────────────────────────────────────────────
 
     def echo_command(self, command: CdkCommand) -> None:
-        self.err.print(f"[bold]$ {command.display}[/bold]")
+        self.err.print(f"[bold magenta]$ {command.display}[/bold magenta]")
 
     def echo_hook(self, command: str, kind: str) -> None:
         self.err.print(f"[bold]$ {command}[/bold]  [dim]({kind} hook)[/dim]")
@@ -239,7 +239,7 @@ class UI:
         if failed and failed.command:
             self.err.print()
             self.err.print("  [dim]rerun the failed region with:[/dim]")
-            self.err.print(f"  [bold]$ {failed.command.display}[/bold]")
+            self.err.print(f"  [bold magenta]$ {failed.command.display}[/bold magenta]")
         self.err.print()
 
     def error(self, message: str) -> None:
