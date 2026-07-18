@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from cdkw.config import EnvironmentConfig, ProjectConfig
-from cdkw.errors import CdkwError
 from cdkw.resolve import region_short, region_shortcodes
 
 
@@ -85,7 +84,7 @@ def compose_commands(
             "CDKW_ACCOUNT": env_config.account,
             "CDKW_PROFILE": env_config.profile or "",
             "CDKW_REGION": region,
-            "CDKW_REGION_SHORT": _short_or_empty(region),
+            "CDKW_REGION_SHORT": region_short(region),
         }
         commands.append(
             CdkCommand(
@@ -102,11 +101,3 @@ def compose_commands(
 
 def _hook(command: str | None, cwd: Path, env: dict[str, str]) -> Hook | None:
     return Hook(command=command, cwd=cwd, env=env) if command else None
-
-
-def _short_or_empty(region: str) -> str:
-    """Region keys that don't follow AWS naming (e.g. 'local') get no shortcode."""
-    try:
-        return region_short(region)
-    except CdkwError:
-        return ""

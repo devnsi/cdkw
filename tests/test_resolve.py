@@ -73,6 +73,17 @@ class TestRegionOrdering:
         with pytest.raises(CdkwError, match="mars-1"):
             order_regions(env_config, "deploy", ["mars-1"], False)
 
+    def test_shortcode_expands_to_full_region(self, env_config):
+        assert order_regions(env_config, "deploy", ["use1"], False) == ["us-east-1"]
+
+    def test_shortcodes_mix_with_full_names_keeping_order(self, env_config):
+        regions = order_regions(env_config, "deploy", ["aps1", "us-east-1"], False)
+        assert regions == ["ap-south-1", "us-east-1"]
+
+    def test_unknown_value_errors_listing_both_forms(self, env_config):
+        with pytest.raises(CdkwError, match=r"us-east-1 \(use1\)"):
+            order_regions(env_config, "deploy", ["mars1"], False)
+
     def test_non_mutating_verbs_default_to_all_regions(self, env_config):
         assert order_regions(env_config, "synth", [], False) == [
             "us-east-1",
@@ -126,9 +137,8 @@ class TestRegionShort:
     def test_known_regions(self, region, short):
         assert region_short(region) == short
 
-    def test_malformed_region_errors(self):
-        with pytest.raises(CdkwError, match="cannot abbreviate"):
-            region_short("local")
+    def test_unabbreviatable_region_passes_through(self):
+        assert region_short("local") == "local"
 
     def test_shortcodes_map_per_region(self):
         codes = region_shortcodes(["us-east-1", "ap-southeast-1"])

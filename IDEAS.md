@@ -3,20 +3,6 @@
 Evaluated against [DESIGN.md](DESIGN.md). Guiding lens: the tool is a *command composer* — no
 state, no abstraction layer; every idea must keep the echoed-`cdk`-command migration path intact.
 
-## Short-code region selector (`-r use1`)
-
-Accept the `region_short` codes as `--region` input, not just in `stack_pattern` output.
-
-- **Pros**: Less typing; matches the stage ids users already see in stack names and output
-  (`stage-nft-use1/*`); the shortcode machinery and collision check already exist in
-  `cdkw.resolve.region_shortcodes`.
-- **Cons**: Two names for the same thing in error messages and docs; only safe because
-  `region_shortcodes` refuses collisions — the expansion must reuse that exact map.
-- **Approach**: In `order_regions`, before the unknown-region check, build the shortcode map for
-  the environment's regions and expand any requested value that matches a shortcode to its full
-  name. Full names keep working unchanged; unknown values error listing both forms. Pure-function
-  change, snapshot-testable. Small and consistent with the design — **good fit**.
-
 ## Interactive require-approval
 
 Today CDK's own security-diff approval prompt runs inside the dimmed, region-prefixed stream

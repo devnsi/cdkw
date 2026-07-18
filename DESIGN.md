@@ -30,7 +30,10 @@ cdkw <verb> [ENVIRONMENT] [--region REGION]... [--all-regions] [-- <extra cdk ar
   omitted, derived from the git branch (`feature/ABC-123-some-test` → `feature-123`); error out
   with the list of known environments if neither works.
 - **`--region` / `-r`** (repeatable): target one or more specific regions, run **in the given
-  order**. Must be in the environment's configured region list, else error.
+  order**. Accepts the full region name (`us-east-1`) or its `region_short` code (`use1`); short
+  input requires the environment's shortcodes to be collision-free (the same rule `stack_pattern`
+  enforces). Must resolve to the environment's configured region list, else error listing both
+  forms.
 - **`--all-regions`**: iterate all configured regions, **primary region first** (for `destroy`:
   primary **last**). Default when no `--region` is given for `synth`/`diff`/`list`; for
   `deploy`/`destroy`/`watch` a region must be chosen explicitly or confirmed interactively —

@@ -43,6 +43,13 @@ class TestDryRun:
         assert '$ npx cdk deploy "feature-123-use1/*"' in output
         assert "euc1/*" not in output
 
+    def test_single_region_targeting_by_shortcode(self):
+        result = runner.invoke(app, ["deploy", "feature-123", "-r", "use1", "--dry-run", "--plain"])
+        assert result.exit_code == 0, combined_output(result)
+        output = combined_output(result)
+        assert '$ npx cdk deploy "feature-123-use1/*"' in output
+        assert "euc1/*" not in output
+
     def test_destroy_all_regions_reversed_primary_last(self):
         result = runner.invoke(app, ["destroy", "feature-123", "--all-regions", "--dry-run", "--plain"])
         assert result.exit_code == 0, combined_output(result)

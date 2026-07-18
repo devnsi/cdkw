@@ -133,7 +133,7 @@ class TestHooks:
         assert [c.pre_hook.env["CDKW_REGION"] for c in commands] == ["us-east-1", "eu-central-1"]
         assert [c.pre_hook.env["CDKW_REGION_SHORT"] for c in commands] == ["use1", "euc1"]
 
-    def test_unabbreviatable_region_gets_empty_shortcode(self, env_config):
+    def test_unabbreviatable_region_is_its_own_shortcode(self, env_config):
         env_config.regions["local"] = type(env_config.regions["us-east-1"])()
         project = ProjectConfig(
             stack_pattern="{environment}-{region}/*", hooks={"pre": "echo pre"}
@@ -141,4 +141,4 @@ class TestHooks:
         (command,) = compose_commands(
             "synth", "feature-123", env_config, ["local"], project, [], APP_DIR, self.ROOT
         )
-        assert command.pre_hook.env["CDKW_REGION_SHORT"] == ""
+        assert command.pre_hook.env["CDKW_REGION_SHORT"] == "local"

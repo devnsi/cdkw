@@ -74,7 +74,7 @@ def _register(verb: str) -> None:
         ] = None,
         region: Annotated[
             Optional[list[str]],
-            typer.Option("--region", "-r", help="Target region(s), run in the given order."),
+            typer.Option("--region", "-r", help="Target region(s), full name or shortcode (us-east-1 / use1), run in the given order."),
         ] = None,
         all_regions: Annotated[
             bool,

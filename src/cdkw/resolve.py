@@ -18,7 +18,7 @@ def region_short(region: str) -> str:
     """Abbreviate an AWS region name: us-east-1 → use1, ap-southeast-1 → apse1."""
     parts = region.split("-")
     if len(parts) < 3:
-        raise CdkwError(f"cannot abbreviate region '{region}': expected a name like 'us-east-1'")
+        return region
     return parts[0] + "".join(_COMPOUND_DIRECTIONS.get(p, p[:1]) for p in parts[1:-1]) + parts[-1]
 
 
@@ -107,13 +107,27 @@ def order_regions(
         if all_regions or len(requested) > 1:
             raise CdkwError(f"cdk {verb} runs a single region until interrupted — pass one --region")
     if requested:
-        unknown = [r for r in requested if r not in config.regions]
+        by_short: dict[str, str] | None = None
+        resolved: list[str] = []
+        unknown: list[str] = []
+        for value in requested:
+            if value in config.regions:
+                resolved.append(value)
+                continue
+            if by_short is None:
+                by_short = {s: r for r, s in region_shortcodes(config.regions).items()}
+            expanded = by_short.get(value)
+            if expanded:
+                resolved.append(expanded)
+            else:
+                unknown.append(value)
         if unknown:
+            known = ", ".join(f"{r} ({region_short(r)})" for r in config.regions)
             raise CdkwError(
                 f"region(s) not configured for this environment: {', '.join(unknown)}\n"
-                f"  known regions: {', '.join(config.regions)}"
+                f"  known regions: {known}"
             )
-        return list(requested)
+        return resolved
     if all_regions or verb not in MUTATING_VERBS:
         return default_region_order(config, verb)
     return None
