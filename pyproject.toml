@@ -1,8 +1,10 @@
 [project]
 name = "cdkw"
-version = "0.1.0"
+version = "1.0.0"
 description = "Thin CDK wrapper CLI for multi-stage, multi-environment, multi-region deployments"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.14"
 dependencies = [
     "typer>=0.16",

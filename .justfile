@@ -25,3 +25,10 @@ cdkw *args:
 # Preview the composed cdk commands for the example environment without executing.
 demo:
     cd workspace && uv run --project .. cdkw synth feature-123 --dry-run
+
+# Install locally from source.
+[script]
+install:
+    uv build
+    latest=$(ls -t dist | grep .whl | head -n 1)
+    uv tool install "dist/$latest" --force
