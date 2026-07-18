@@ -1,0 +1,50 @@
+name: release
+
+on:
+  push:
+    tags: [ "v*" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: cdkw-linux-x86_64
+          - os: macos-latest
+            artifact: cdkw-macos-arm64
+          - os: windows-latest
+            artifact: cdkw-windows-x86_64.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - run: uv sync
+      - run: echo "from cdkw.cli import app; app()" > entry.py
+        shell: bash
+      - run: uv run --with pyinstaller pyinstaller --onefile --name cdkw entry.py
+      - run: mv dist/cdkw* ${{ matrix.artifact }}
+        shell: bash
+      - run: ./${{ matrix.artifact }} --help
+        shell: bash
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: cdkw-*
+          generate_release_notes: true

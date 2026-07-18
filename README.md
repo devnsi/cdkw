@@ -1,5 +1,7 @@
 # CDK Wrapper
 
+[![test](https://github.com/devnsi/cdkw/actions/workflows/test.yml/badge.svg)](https://github.com/devnsi/cdkw/actions/workflows/test.yml)
+
 A CLI tool to manage AWS CDK deployments across multiple stages, environments, and regions.
 
 ## Installation
