@@ -73,31 +73,42 @@ class UI:
         primary = env_config.primary_region
         region_bits = []
         for name in env_config.regions:
-            region_bits.append(f"{name} {self.sym['primary']}" if name == primary else name)
+            if name == primary:
+                region_bits.append(f"{name} [magenta]{self.sym['primary']}[/magenta]")
+            else:
+                region_bits.append(name)
         regions_note = None
         if primary:
             order_hint = "deployed last" if self.verb == "destroy" else "deployed first"
             regions_note = f"({self.sym['primary']} primary, {order_hint})"
 
-        # (label, value, dim annotation); widths computed so annotations line up
+        # (label, plain value, styled value, dim annotation); widths use the plain
+        # value so markup doesn't skew the annotation alignment
+        regions_value = ", ".join(
+            f"{name} {self.sym['primary']}" if name == primary else name
+            for name in env_config.regions
+        )
         rows = [
-            ("environment", env_name, f"({provenance})"),
-            ("stage", f"{env_config.stage} → {env_config.account}", None),
-            ("regions", ", ".join(region_bits), regions_note),
+            ("environment", env_name, f"[magenta]{env_name}[/magenta]", f"({provenance})"),
+            ("stage", f"{env_config.stage} → {env_config.account}", None, None),
+            ("regions", regions_value, ", ".join(region_bits), regions_note),
         ]
-        label_width = max(len(label) for label, _, _ in rows)
-        value_width = max((len(value) for _, value, note in rows if note), default=0)
+        label_width = max(len(label) for label, _, _, _ in rows)
+        value_width = max((len(value) for _, value, _, note in rows if note), default=0)
 
         self.err.print()
-        for label, value, note in rows:
-            line = f"  [bold]{label:<{label_width}}[/bold]  {value}"
+        for label, value, styled, note in rows:
+            line = f"  [bold]{label:<{label_width}}[/bold]  {styled or value}"
             if note:
                 line += f"{' ' * (value_width - len(value))}   [dim]{note}[/dim]"
             self.err.print(line)
         self.err.print()
         self.err.print(f"  [bold]plan[/bold]  {len(commands)} × cdk {self.verb}")
         for index, command in enumerate(commands, start=1):
-            self.err.print(f"    {index}. [cyan]{command.region:<15}[/cyan] {command.selector}")
+            self.err.print(
+                f"    {index}. [cyan]{command.region:<15}[/cyan] "
+                f"[magenta]{command.selector}[/magenta]"
+            )
         self.err.print()
 
     # ── per-region progress ─────────────────────────────────────────────────
@@ -175,7 +186,10 @@ class UI:
             return  # single successful region: the region_done line already says it all
         total = sum(r.duration for r in results)
         self.err.print()
-        self.err.print(f"  [bold]── {self.verb} {env_name} ──────────────────────────[/bold]")
+        self.err.print(
+            f"  [bold]── {self.verb} [magenta]{env_name}[/magenta] "
+            f"──────────────────────────[/bold]"
+        )
         for r in results:
             warning = f"   [yellow]{r.hook_warning}[/yellow]" if r.hook_warning else ""
             if r.status == "succeeded":
