@@ -77,6 +77,24 @@ class TestProjectConfig:
         with pytest.raises(CdkwError, match="invalid"):
             load_project_config(tmp_path)
 
+    def test_hooks_default_empty(self):
+        config = ProjectConfig()
+        assert config.hooks.pre is None
+        assert config.hooks.post is None
+
+    def test_hooks_from_cdkw_yml(self, tmp_path):
+        (tmp_path / "cdkw.yml").write_text(
+            "hooks:\n  pre: uv run scripts/prepare.py\n  post: uv run scripts/tag.py\n"
+        )
+        config = load_project_config(tmp_path)
+        assert config.hooks.pre == "uv run scripts/prepare.py"
+        assert config.hooks.post == "uv run scripts/tag.py"
+
+    def test_unknown_hook_keys_rejected(self, tmp_path):
+        (tmp_path / "cdkw.yml").write_text("hooks:\n  pre_deploy: echo hi\n")
+        with pytest.raises(CdkwError, match="invalid"):
+            load_project_config(tmp_path)
+
 
 class TestProjectRoot:
     def test_found_via_cdk_json_walking_up(self, tmp_path):

@@ -49,33 +49,6 @@ Target a subset of stacks within a region, e.g. `cdkw deploy -s Api`.
   `stack_selector: '{environment}-{region_short}/{stack}'`). Pure composition change, dry-run
   snapshot tests. **Good fit** — it's still just command composition.
 
-## Hooks (extension points)
-
-Generalizes three raw ideas — *extension setup/integrate*, *git tags for deployment*, and
-*custom script to provide envs* — into one mechanism: user-provided shell commands (plain
-scripts, `uv run ...`, anything) declared in `cdkw.yml` and triggered by the wrapper. `cdkw`
-stays a command composer; the extensions are decoupled from the cdk flow but fire from it.
-
-- **Pros**: One mechanism covers tagging, notifications, config generation, and future needs
-  without any of them becoming wrapper features; fits "no state" — hooks are side effects the
-  wrapper never reads back; the YAML stays the single source of truth even when a `pre` hook
-  generates it.
-- **Cons**: A shell-string escape hatch invites logic that should live in the app or CI;
-  failure semantics need care (a failed tag push must not mask a successful deploy).
-- **Sketch**:
-    - `hooks:` map in `cdkw.yml` with `pre_<verb>` / `post_<verb>` keys, one shell command each,
-      run from the repo root, once per composed command (per environment × region unit).
-    - Context via env vars: `CDKW_VERB`, `CDKW_ENVIRONMENT`, `CDKW_STAGE`, `CDKW_ACCOUNT`,
-      `CDKW_PROFILE`, `CDKW_REGION` / `CDKW_REGION_SHORT`.
-    - Failing `pre` hook stops the sequence like a failing cdk command; failing `post` hook
-      (runs only after exit 0) is a summary warning, exit code unchanged.
-    - Hooks are echoed `$`-prefixed and streamed dimmed like cdk output; the wrapper never
-      parses hook output.
-    - Example hooks: `post_deploy: git tag -f env/$CDKW_ENVIRONMENT-$CDKW_REGION_SHORT && git
-    push ...`, `post_destroy` removing it; a `pre_*` hook (re)generating environment YAMLs.
-- **Open**: should `post` hooks fire on failure too (with `CDKW_EXIT_CODE`) so scripts decide,
-  instead of success-only?
-
 ## Regionless environments (local / no region)
 
 For running `deploy`/`diff`/etc. against e.g. localstack — but **not** as a special case: all

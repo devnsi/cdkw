@@ -1,0 +1,3 @@
+hooks:
+  pre: uv run python scripts/hook_pre.py
+  post: sh scripts/hook_post.sh

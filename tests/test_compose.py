@@ -83,3 +83,62 @@ class TestComposition:
         )
         assert command.display.startswith('npx cdk deploy "feature-123-use1/*"')
         assert "--context env=feature-123" in command.display
+
+
+class TestHooks:
+    ROOT = Path("root")
+
+    def hooks_project(self) -> ProjectConfig:
+        return ProjectConfig(hooks={"pre": "echo pre", "post": "echo post"})
+
+    def test_no_hooks_by_default(self, env_config, project_config):
+        (command,) = compose_commands(
+            "deploy", "feature-123", env_config, ["us-east-1"], project_config, [], APP_DIR
+        )
+        assert command.pre_hook is None
+        assert command.post_hook is None
+
+    def test_hooks_attached_with_root_cwd_and_context_env(self, env_config):
+        (command,) = compose_commands(
+            "deploy", "feature-123", env_config, ["us-east-1"], self.hooks_project(), [],
+            APP_DIR, self.ROOT,
+        )
+        assert command.pre_hook.command == "echo pre"
+        assert command.post_hook.command == "echo post"
+        assert command.pre_hook.cwd == self.ROOT
+        assert command.pre_hook.env == {
+            "CDKW_VERB": "deploy",
+            "CDKW_ENVIRONMENT": "feature-123",
+            "CDKW_STAGE": "test",
+            "CDKW_ACCOUNT": "111111111111",
+            "CDKW_PROFILE": "account-test",
+            "CDKW_REGION": "us-east-1",
+            "CDKW_REGION_SHORT": "use1",
+        }
+        assert command.post_hook.env == command.pre_hook.env
+
+    def test_profile_empty_when_unset(self, env_config):
+        env_config.profile = None
+        (command,) = compose_commands(
+            "synth", "feature-123", env_config, ["us-east-1"], self.hooks_project(), [],
+            APP_DIR, self.ROOT,
+        )
+        assert command.pre_hook.env["CDKW_PROFILE"] == ""
+
+    def test_hooks_attached_per_region(self, env_config):
+        commands = compose_commands(
+            "deploy", "feature-123", env_config, ["us-east-1", "eu-central-1"],
+            self.hooks_project(), [], APP_DIR, self.ROOT,
+        )
+        assert [c.pre_hook.env["CDKW_REGION"] for c in commands] == ["us-east-1", "eu-central-1"]
+        assert [c.pre_hook.env["CDKW_REGION_SHORT"] for c in commands] == ["use1", "euc1"]
+
+    def test_unabbreviatable_region_gets_empty_shortcode(self, env_config):
+        env_config.regions["local"] = type(env_config.regions["us-east-1"])()
+        project = ProjectConfig(
+            stack_pattern="{environment}-{region}/*", hooks={"pre": "echo pre"}
+        )
+        (command,) = compose_commands(
+            "synth", "feature-123", env_config, ["local"], project, [], APP_DIR, self.ROOT
+        )
+        assert command.pre_hook.env["CDKW_REGION_SHORT"] == ""

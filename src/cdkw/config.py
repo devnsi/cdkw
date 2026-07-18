@@ -36,6 +36,15 @@ class EnvironmentConfig(BaseModel):
         return None
 
 
+class HooksConfig(BaseModel):
+    """User shell commands run around each composed cdk command (see DESIGN.md: Hooks)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    pre: str | None = None
+    post: str | None = None
+
+
 class ProjectConfig(BaseModel):
     """Optional cdkw.yml at the project root; defaults match the workspace conventions."""
 
@@ -47,6 +56,7 @@ class ProjectConfig(BaseModel):
     env_context_key: str = "env"
     stack_pattern: str = "{environment}-{region_short}/*"
     feature_fallback: str = "dev-feature"
+    hooks: HooksConfig = HooksConfig()
 
 
 def find_project_root(start: Path | None = None) -> Path:

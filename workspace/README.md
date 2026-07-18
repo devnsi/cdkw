@@ -13,6 +13,8 @@ package manager; the CDK CLI comes from npm (`npx cdk` works without a global in
   to the shared `environments/dev-feature.yaml`.
 - `environments/dev-feature.yaml` — example config: account/stage plus a region map with an
   `is_primary` flag.
+- `cdkw.yml` + `scripts/hook_pre.py` / `scripts/hook_post.sh` — sample cdkw hooks that print
+  a brief message with their `CDKW_*` context.
 
 ## Run it
 

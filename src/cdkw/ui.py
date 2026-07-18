@@ -29,6 +29,7 @@ class RegionResult:
     exit_code: int | None
     duration: float
     command: CdkCommand | None = None
+    hook_warning: str | None = None
 
 
 def _elapsed(seconds: float) -> str:
@@ -93,6 +94,17 @@ class UI:
     def echo_command(self, command: CdkCommand) -> None:
         self.err.print(f"[bold]$ {command.display}[/bold]")
 
+    def echo_hook(self, command: str, kind: str) -> None:
+        self.err.print(f"[bold]$ {command}[/bold]  [dim]({kind} hook)[/dim]")
+
+    def injected_env(self, pairs: dict[str, str]) -> None:
+        """Env vars the pre hook injected into the cdk child — shown so runs stay reproducible."""
+        for key, value in pairs.items():
+            self.err.print(f"  [dim]env {key}={value}[/dim]")
+
+    def warn(self, message: str) -> None:
+        self.err.print(f"[yellow]warning:[/yellow] {message}")
+
     def region_start(self, region: str) -> None:
         self._region_start_time = time.monotonic()
         if self.fancy:
@@ -147,18 +159,22 @@ class UI:
     # ── summary ─────────────────────────────────────────────────────────────
 
     def summary(self, env_name: str, results: list[RegionResult]) -> None:
-        if len(results) <= 1 and all(r.status == "succeeded" for r in results):
+        clean = all(r.hook_warning is None for r in results)
+        if len(results) <= 1 and clean and all(r.status == "succeeded" for r in results):
             return  # single successful region: the region_done line already says it all
         total = sum(r.duration for r in results)
         self.err.print()
         self.err.print(f"  [bold]── {self.verb} {env_name} ──────────────────────────[/bold]")
         for r in results:
+            warning = f"   [yellow]{r.hook_warning}[/yellow]" if r.hook_warning else ""
             if r.status == "succeeded":
-                self.err.print(f"  [green]{self.sym['ok']}[/green] {r.region:<15} {_elapsed(r.duration)}")
+                self.err.print(
+                    f"  [green]{self.sym['ok']}[/green] {r.region:<15} {_elapsed(r.duration)}{warning}"
+                )
             elif r.status == "failed":
                 self.err.print(
                     f"  [red]{self.sym['fail']}[/red] {r.region:<15} {_elapsed(r.duration)}   "
-                    f"[red]exit {r.exit_code} — sequence stopped[/red]"
+                    f"[red]exit {r.exit_code} — sequence stopped[/red]{warning}"
                 )
             else:
                 self.err.print(f"  [dim]{self.sym['queued']} {r.region:<15} skipped[/dim]")

@@ -92,3 +92,29 @@ cdkw watch feature-123 -r us-east-1        # hot-deploy one region until interru
 
 `cdkw <verb> --help` lists all options (`--dry-run`, `--quiet`, `--plain`, …); the full CLI
 contract lives in [DESIGN.md](DESIGN.md#cli-surface).
+
+### Hooks
+
+Optional `pre`/`post` shell commands in `cdkw.yml` run around every composed `cdk` command,
+with context passed as `CDKW_*` environment variables (`CDKW_VERB`, `CDKW_ENVIRONMENT`,
+`CDKW_REGION`, `CDKW_REGION_SHORT`, …). For example, tagging what is deployed where:
+
+```yaml
+hooks:
+  post: 'sh scripts/tag_deployment.sh'
+```
+
+```sh
+# scripts/tag_deployment.sh — git-tag successful deploys, untag destroys
+[ "$CDKW_EXIT_CODE" = "0" ] || exit 0
+tag="env/$CDKW_ENVIRONMENT-$CDKW_REGION_SHORT"
+case "$CDKW_VERB" in
+  deploy)  git tag -f "$tag" ;;
+  destroy) git tag -d "$tag" ;;
+esac
+```
+
+A `pre` hook can also pass extra environment variables to the `cdk` process by writing
+`KEY=VALUE` lines to the file named by `CDKW_ENV`. A failing `pre` hook stops the run like a
+failing `cdk` command; `post` hooks always run (`CDKW_EXIT_CODE` tells them how the command
+went) and a failing `post` hook is only a warning. Details in [DESIGN.md](DESIGN.md#hooks).

@@ -91,6 +91,10 @@ branch_pattern: 'feature/[A-Za-z]+-(?P<num>\d+).*'   # → feature-<num>
 env_context_key: env        # produces: --context env=<environment>
 stack_pattern: '{environment}-{region_short}/*'      # cdk stack selector template
 feature_fallback: dev-feature                        # shared config for feature-* envs
+
+hooks:                      # optional; shell commands run around each composed cdk command
+  pre: 'uv run scripts/prepare.py'
+  post: 'uv run scripts/tag_deployment.py'
 ```
 
 Accounts and profiles live in each environment file (no stage→account map needed).
@@ -132,6 +136,36 @@ cdk <verb> '<environment>-<region_short>/*' \
 - Regions run **sequentially**; a failure stops the sequence (later regions may depend on the
   primary region's global resources). `--continue-on-error` can be added later if needed.
 - Exit code: the first failing `cdk` exit code, passed through unchanged.
+
+## Hooks
+
+`cdkw` stays a command composer; everything else is an **extension point**: two user-provided
+shell commands, `pre` and `post`, declared in `cdkw.yml` and run around each composed cdk
+command. Hooks that only care about some verbs branch on `CDKW_VERB` themselves — deliberately
+no per-verb keys. Example uses: git deployment tags (`post` tagging
+`env/$CDKW_ENVIRONMENT-$CDKW_REGION_SHORT` on deploy, removing it on destroy), notifications,
+or a `pre` hook that (re)generates environment YAMLs — the wrapper still reads only the YAML,
+so the single source of truth stands.
+
+- Hooks run **once per composed command** (per environment × region unit), from the **repo
+  root**, through the platform shell (`shell=True`: cmd.exe on Windows, `/bin/sh` on POSIX).
+- Context via environment variables (merged over the ambient environment): `CDKW_VERB`,
+  `CDKW_ENVIRONMENT`, `CDKW_STAGE`, `CDKW_ACCOUNT`, `CDKW_PROFILE` (empty when unset),
+  `CDKW_REGION`, `CDKW_REGION_SHORT`; the post hook additionally gets `CDKW_EXIT_CODE`.
+- **Env injection (pre → cdk)**: the pre hook receives `CDKW_ENV`, the path of a fresh temp
+  file; `KEY=VALUE` lines it writes there (blanks and `#` comments ignored, malformed lines
+  warn and are skipped) are merged into that unit's cdk child environment — GitHub-Actions
+  `$GITHUB_ENV` style, so hook *stdout* stays unparsed. Injected vars are echoed dimmed
+  (`env KEY=VALUE`) above the cdk command so the run stays reproducible by hand.
+- **Failure semantics**: a failing `pre` hook fails the unit with the hook's exit code — the
+  cdk command does not run and the sequence stops, exactly like a failing cdk command. The
+  `post` hook fires **regardless of the cdk exit code** (compensating actions), but never for
+  skipped units; a failing post hook is a warning (immediate and in the summary) and leaves
+  the run's exit code unchanged.
+- Hooks are echoed `$`-prefixed with a dim `(pre hook)` / `(post hook)` annotation and appear
+  in `--dry-run` output; their output streams dimmed/region-prefixed like cdk's. The wrapper
+  never parses hook stdout and never reads back anything except the `CDKW_ENV` file — hooks
+  are side effects, not state.
 
 ## Ordering rules
 
@@ -259,5 +293,7 @@ rerun just that region without scrolling back.
   the resolved account matches `cdk`'s target and failing fast on mismatch is a nice-to-have,
   not required for v1.
 - Cross-environment orchestration (deploy several environments in one run).
+- Built-in deployment tagging, notifications, or config generation — these are user
+  [hooks](#hooks), never wrapper features.
 - Parallel region deploys — sequential is a feature (primary-first ordering).
 - Bootstrapping (`cdk bootstrap`) — can be run manually; may become a verb later.

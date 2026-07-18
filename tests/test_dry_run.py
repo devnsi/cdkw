@@ -75,6 +75,26 @@ class TestDryRun:
         assert "$ npx cdk synth" in output
 
 
+class TestHooksDryRun:
+    def test_hook_lines_shown_around_cdk_command(self, tmp_path, monkeypatch):
+        (tmp_path / "cdk.json").write_text("{}")
+        (tmp_path / "cdkw.yml").write_text(
+            "hooks:\n  pre: uv run scripts/prepare.py\n  post: uv run scripts/tag.py\n"
+        )
+        env_dir = tmp_path / "environments"
+        env_dir.mkdir()
+        (env_dir / "test-main.yaml").write_text(
+            "account: '111'\nstage: test\nregions:\n  us-east-1:\n    is_primary: true\n"
+        )
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(app, ["deploy", "test-main", "-r", "us-east-1", "--dry-run", "--plain"])
+        assert result.exit_code == 0, combined_output(result)
+        output = combined_output(result)
+        assert "$ uv run scripts/prepare.py  (pre hook)" in output
+        assert "$ uv run scripts/tag.py  (post hook)" in output
+        assert output.index("prepare.py") < output.index("npx cdk deploy") < output.index("tag.py")
+
+
 class TestWorkspaceContract:
     def test_workspace_region_short_matches_wrapper(self):
         """The app's stage ids and the wrapper's selectors are built from the same rule —

@@ -5,7 +5,17 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from cdkw.config import EnvironmentConfig, ProjectConfig
-from cdkw.resolve import region_shortcodes
+from cdkw.errors import CdkwError
+from cdkw.resolve import region_short, region_shortcodes
+
+
+@dataclass(frozen=True)
+class Hook:
+    """A user shell command with its CDKW_* context vars (merged over os.environ at run time)."""
+
+    command: str
+    cwd: Path
+    env: dict[str, str]
 
 
 @dataclass(frozen=True)
@@ -14,6 +24,8 @@ class CdkCommand:
     region: str
     selector: str
     cwd: Path
+    pre_hook: Hook | None = None
+    post_hook: Hook | None = None
 
     @property
     def display(self) -> str:
@@ -35,14 +47,17 @@ def compose_commands(
     project: ProjectConfig,
     extra_args: Sequence[str],
     app_dir: Path,
+    root: Path | None = None,
 ) -> list[CdkCommand]:
     """One `cdk <verb>` invocation per region, in the given order.
 
     The region reaches app.py via --context only (app.py also honors CDK_DEPLOY_REGION,
-    but context wins, so the wrapper sets nothing else).
+    but context wins, so the wrapper sets nothing else). Configured hooks are attached per
+    command, running from the project root.
     """
     uses_short = "{region_short}" in project.stack_pattern
     shorts = region_shortcodes(env_config.regions) if uses_short else {}
+    hook_cwd = root or app_dir
     commands = []
     for region in regions:
         selector = project.stack_pattern.format(
@@ -63,5 +78,35 @@ def compose_commands(
         if env_config.profile:
             argv += ["--profile", env_config.profile]
         argv += list(extra_args)
-        commands.append(CdkCommand(argv=argv, region=region, selector=selector, cwd=app_dir))
+        hook_env = {
+            "CDKW_VERB": verb,
+            "CDKW_ENVIRONMENT": env_name,
+            "CDKW_STAGE": env_config.stage,
+            "CDKW_ACCOUNT": env_config.account,
+            "CDKW_PROFILE": env_config.profile or "",
+            "CDKW_REGION": region,
+            "CDKW_REGION_SHORT": _short_or_empty(region),
+        }
+        commands.append(
+            CdkCommand(
+                argv=argv,
+                region=region,
+                selector=selector,
+                cwd=app_dir,
+                pre_hook=_hook(project.hooks.pre, hook_cwd, hook_env),
+                post_hook=_hook(project.hooks.post, hook_cwd, hook_env),
+            )
+        )
     return commands
+
+
+def _hook(command: str | None, cwd: Path, env: dict[str, str]) -> Hook | None:
+    return Hook(command=command, cwd=cwd, env=env) if command else None
+
+
+def _short_or_empty(region: str) -> str:
+    """Region keys that don't follow AWS naming (e.g. 'local') get no shortcode."""
+    try:
+        return region_short(region)
+    except CdkwError:
+        return ""

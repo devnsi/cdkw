@@ -131,12 +131,18 @@ def _run_verb(
         if regions is None:
             regions = _pick_regions(verb, env_name, env_config, plain)
 
-        commands = compose_commands(verb, env_name, env_config, regions, project, extra_args, app_dir)
+        commands = compose_commands(
+            verb, env_name, env_config, regions, project, extra_args, app_dir, root
+        )
         ui.plan(env_name, provenance, env_config, commands)
 
         if dry_run:
             for command in commands:
+                if command.pre_hook:
+                    ui.echo_hook(command.pre_hook.command, "pre")
                 ui.echo_command(command)
+                if command.post_hook:
+                    ui.echo_hook(command.post_hook.command, "post")
             return 0
 
         results = run_commands(commands, ui)
