@@ -19,6 +19,9 @@ cdkw --help
 
 Requires Python >= 3.14 (uv provisions it automatically if missing).
 
+For tab completion of verbs and environment names (installed tool only, not uvx), run
+`cdkw --install-completion` once and restart the shell.
+
 ## Background
 
 AWS CDK is a framework to describe AWS resources for provisioning. It comes as a Python library to

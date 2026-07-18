@@ -1,6 +1,13 @@
 """cdkw CLI — verbs 1:1 with cdk; everything after `--` passes through untouched."""
 
+import io
+import os
 import sys
+
+# In shell-completion mode the output is parsed by the shell's completion script; Windows'
+# default \n→\r\n translation would leave a trailing \r on every suggestion.
+if os.environ.get("_CDKW_COMPLETE") and isinstance(sys.stdout, io.TextIOWrapper):
+    sys.stdout.reconfigure(newline="\n")
 from typing import Annotated, Optional
 
 import typer
@@ -27,7 +34,6 @@ from cdkw.ui import UI
 
 app = typer.Typer(
     no_args_is_help=True,
-    add_completion=False,
     help="Thin CDK wrapper for multi-stage, multi-environment, multi-region deployments. "
     "Every run composes visible `cdk` commands, one per (environment, region).",
 )
@@ -40,6 +46,17 @@ VERB_HELP = {
     "watch": "Watch for changes and hot-deploy a single region (runs until interrupted).",
     "list": "List the stacks per region.",
 }
+
+
+def _complete_environment(incomplete: str) -> list[str]:
+    """Shell completion for the ENVIRONMENT argument: the *.yaml stems in the config dir."""
+    try:
+        root = find_project_root()
+        project = load_project_config(root)
+        names = known_environments(root / project.config_dir)
+    except CdkwError:
+        return []
+    return [name for name in names if name.startswith(incomplete)]
 
 
 def _version_callback(value: bool) -> None:
@@ -69,7 +86,8 @@ def _register(verb: str) -> None:
         environment: Annotated[
             Optional[str],
             typer.Argument(
-                help="Environment name (e.g. test-main, feature-123); derived from the git branch when omitted."
+                help="Environment name (e.g. test-main, feature-123); derived from the git branch when omitted.",
+                autocompletion=_complete_environment,
             ),
         ] = None,
         region: Annotated[

@@ -50,6 +50,9 @@ cdkw <verb> [ENVIRONMENT] [--region REGION]... [--all-regions] [--stack NAME]...
   (environment, region). Names pass through to CDK untouched (wildcards like `Api*` work);
   a `stack_pattern` without a `/` cannot be narrowed and errors.
 - **`--dry-run`**: print the composed `cdk` commands without executing.
+- **Shell completion** (typer's built-in, installed via `cdkw --install-completion`): the
+  `ENVIRONMENT` argument completes from the `*.yaml` stems in the config dir, resolved from the
+  shell's cwd; outside a project it suggests nothing rather than erroring.
 
 Worked examples for each of these are in the [README](README.md#usage).
 
