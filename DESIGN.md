@@ -243,6 +243,18 @@ promise), but styled to recede:
   untouched and un-dimmed. Because the child runs behind pipes, the wrapper sets
   `FORCE_COLOR=1` for `diff` (only when on a TTY, and never under `--plain`/`NO_COLOR`) so
   CDK's green/red resource markers survive.
+- The interactive verbs (`deploy`, `destroy`, `watch`) are the other exception: on an
+  interactive terminal (stdin *and* stderr are TTYs) the child inherits the real
+  stdin/stdout/stderr instead of pipes, so CDK's own `--require-approval` security prompt and
+  `destroy`'s confirmation render and read input natively. Those runs lose the dimmed
+  region prefix and the spinner tail (the child owns the terminal); regions still run
+  sequentially, so nothing interleaves, and the `$ cmd` echo, per-region result line, and
+  summary stay. The child sees a real TTY and handles its own colors — no `FORCE_COLOR`.
+  Runs whose flags already suppress the prompt keep the piped, dimmed treatment:
+  `--require-approval never` for `deploy`, `--force`/`-f` for `destroy`; `watch` always owns
+  the terminal. The check inspects only the composed argv — a `requireApproval` setting in
+  `cdk.json` is invisible to it, so those runs still inherit stdio (harmless: only the
+  dimmed prefix is lost).
 
 ### 4. Summary
 
@@ -265,8 +277,11 @@ rerun just that region without scrolling back.
 
 - **No TTY** (CI, piped): no spinners, no colors, no interactive picker — plain sequential
   logs with the same information (plan block, `$ cmd`, prefixed output, summary). Rich
-  handles detection; `--plain` / `NO_COLOR` force it.
+  handles detection; `--plain` / `NO_COLOR` force it. Interactive verbs keep the
+  piped/prefixed treatment too — stdio inheritance needs stdin and stderr TTYs.
 - **`--quiet`**: suppress the plan block and dimmed CDK output; keep commands, errors, summary.
+  For inherited-stdio runs `--quiet` cannot suppress the child's output (a hidden approval
+  prompt would hang) — it only quiets the wrapper's own decoration.
 - Interactive prompts never appear without a TTY — missing region selection in CI is a hard
   error with a hint (`pass --region or --all-regions`).
 - All decoration goes to **stderr**; stdout carries only pass-through CDK output (so

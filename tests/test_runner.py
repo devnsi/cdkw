@@ -54,6 +54,67 @@ def command(region: str, pre: Hook | None = None, post: Hook | None = None) -> C
     )
 
 
+def cdk_argv(verb: str, *extra: str) -> list[str]:
+    return ["npx", "cdk", verb, "env-use1/*", *extra]
+
+
+class TestInheritStdio:
+    @pytest.mark.parametrize("verb", ["deploy", "destroy", "watch"])
+    def test_interactive_verbs_inherit_on_tty(self, verb):
+        assert runner._inherit_stdio(cdk_argv(verb), stdin_tty=True, stderr_tty=True)
+
+    @pytest.mark.parametrize("verb", ["synth", "diff", "list"])
+    def test_other_verbs_stay_piped(self, verb):
+        assert not runner._inherit_stdio(cdk_argv(verb), stdin_tty=True, stderr_tty=True)
+
+    def test_requires_stdin_tty(self):
+        assert not runner._inherit_stdio(cdk_argv("deploy"), stdin_tty=False, stderr_tty=True)
+
+    def test_requires_stderr_tty(self):
+        assert not runner._inherit_stdio(cdk_argv("deploy"), stdin_tty=True, stderr_tty=False)
+
+    @pytest.mark.parametrize(
+        "extra",
+        [("--require-approval", "never"), ("--require-approval=never",)],
+        ids=["separate", "equals"],
+    )
+    def test_deploy_with_approval_never_stays_piped(self, extra):
+        argv = cdk_argv("deploy", *extra)
+        assert not runner._inherit_stdio(argv, stdin_tty=True, stderr_tty=True)
+
+    def test_deploy_with_approval_broadening_inherits(self):
+        argv = cdk_argv("deploy", "--require-approval", "broadening")
+        assert runner._inherit_stdio(argv, stdin_tty=True, stderr_tty=True)
+
+    def test_last_approval_flag_wins(self):
+        argv = cdk_argv("deploy", "--require-approval=never", "--require-approval", "broadening")
+        assert runner._inherit_stdio(argv, stdin_tty=True, stderr_tty=True)
+
+    @pytest.mark.parametrize("flag", ["--force", "-f"])
+    def test_destroy_with_force_stays_piped(self, flag):
+        argv = cdk_argv("destroy", flag)
+        assert not runner._inherit_stdio(argv, stdin_tty=True, stderr_tty=True)
+
+    def test_watch_inherits_regardless_of_flags(self):
+        argv = cdk_argv("watch", "--require-approval", "never")
+        assert runner._inherit_stdio(argv, stdin_tty=True, stderr_tty=True)
+
+    def test_run_one_hands_child_the_real_stdio(self, ui, monkeypatch, capfd):
+        monkeypatch.setattr(runner, "_inherit_stdio", lambda *args, **kwargs: True)
+        cmd = CdkCommand(
+            argv=["npx", "-c", "import sys; print('owned'); sys.exit(5)"],
+            region="us-east-1",
+            selector="*",
+            cwd=Path("."),
+            pre_hook=None,
+            post_hook=None,
+        )
+        exit_code, duration = runner._run_one(cmd, sys.executable, ui)
+        assert exit_code == 5
+        assert duration >= 0
+        assert "owned" in capfd.readouterr().out
+
+
 class TestPreHook:
     def test_failure_skips_cdk_and_stops_sequence(self, tmp_path, ui, monkeypatch):
         fake = FakeCdk()

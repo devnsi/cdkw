@@ -3,6 +3,7 @@
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -10,6 +11,7 @@ from threading import Thread
 
 from cdkw.compose import CdkCommand, Hook
 from cdkw.errors import CdkwError
+from cdkw.resolve import INTERACTIVE_VERBS
 from cdkw.ui import UI, RegionResult
 
 
@@ -132,6 +134,39 @@ def _run_hook(hook: Hook, ui: UI, region: str, extra_env: dict[str, str]) -> int
     return process.returncode
 
 
+def _inherit_stdio(argv: list[str], *, stdin_tty: bool, stderr_tty: bool) -> bool:
+    """Interactive verbs on a real terminal get the parent's stdio so CDK's own
+    approval / confirmation prompts work — behind pipes they stall invisibly.
+    stdin must be a TTY to answer, stderr to see the prompt at all. Runs whose
+    flags already suppress the prompt keep the piped, dimmed treatment."""
+    verb = argv[2]
+    if verb not in INTERACTIVE_VERBS or not (stdin_tty and stderr_tty):
+        return False
+    return not _prompts_suppressed(verb, argv)
+
+
+def _prompts_suppressed(verb: str, argv: list[str]) -> bool:
+    """Best-effort check that the run cannot prompt. Partial by design: cdk.json's
+    requireApproval setting is invisible here, so those runs still inherit stdio
+    (harmless — only the dimmed prefix is lost); watch owns the terminal regardless."""
+    if verb == "deploy":
+        return _flag_value(argv, "--require-approval") == "never"
+    if verb == "destroy":
+        return "--force" in argv or "-f" in argv
+    return False
+
+
+def _flag_value(argv: list[str], flag: str) -> str | None:
+    """Last value of a `--flag value` / `--flag=value` pair (yargs: last one wins)."""
+    value = None
+    for i, token in enumerate(argv):
+        if token == flag and i + 1 < len(argv):
+            value = argv[i + 1]
+        elif token.startswith(flag + "="):
+            value = token.partition("=")[2]
+    return value
+
+
 def _run_one(
     command: CdkCommand, npx: str, ui: UI, extra_env: dict[str, str] | None = None
 ) -> tuple[int, float]:
@@ -141,20 +176,28 @@ def _run_one(
         env = {**os.environ, **extra_env}
     if command.argv[2] == "diff" and ui.fancy and "NO_COLOR" not in os.environ:
         env = {**(env or os.environ), "FORCE_COLOR": "1"}
-    start = time.monotonic()
-    try:
-        process = subprocess.Popen(
-            argv,
-            cwd=command.cwd,
-            env=env,
+    inherit = _inherit_stdio(
+        command.argv, stdin_tty=sys.stdin.isatty(), stderr_tty=sys.stderr.isatty()
+    )
+    popen_kwargs: dict = {"cwd": command.cwd, "env": env}
+    if not inherit:
+        popen_kwargs.update(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
             encoding="utf-8",
             errors="replace",
         )
+    start = time.monotonic()
+    try:
+        process = subprocess.Popen(argv, **popen_kwargs)
     except OSError as exc:
         raise CdkwError(f"failed to start {command.display}: {exc}") from exc
+
+    if inherit:
+        ui.region_start(command.region, live=False)
+        process.wait()
+        return process.returncode, time.monotonic() - start
 
     # diff output goes to stderr and is the *product* of the command — pass it through
     # untouched; every other verb gets the dimmed, region-prefixed treatment.

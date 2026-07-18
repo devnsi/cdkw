@@ -3,23 +3,6 @@
 Evaluated against [DESIGN.md](DESIGN.md). Guiding lens: the tool is a *command composer* — no
 state, no abstraction layer; every idea must keep the echoed-`cdk`-command migration path intact.
 
-## Interactive require-approval
-
-Today CDK's own security-diff approval prompt runs inside the dimmed, region-prefixed stream
-(runner pipes stdout/stderr), which likely breaks or buries it; the workaround is
-`-- --require-approval never`.
-
-- **Pros**: Fixes a real UX hazard for `deploy` — a hidden prompt looks like a hang; a
-  wrapper-level confirmation matches the existing questionary picker style.
-- **Cons**: Intercepting/answering CDK's prompt means parsing its output — against "never
-  blocking on parse success"; replacing it with `--require-approval never` plus a wrapper prompt
-  changes security semantics (the wrapper would have to show the security diff itself).
-- **Approach**: Cheapest correct fix: for `deploy`/`destroy` on a TTY, don't pipe — hand the
-  child the real stdin/stdout for the approval-capable verbs (losing the dimmed prefix for those
-  runs), or explicitly document/require `--require-approval` passthrough and detect a stalled
-  child as a hint. Avoid re-implementing the approval flow — **solve as an I/O plumbing fix, not
-  a feature**.
-
 ## Stack selection
 
 Target a subset of stacks within a region, e.g. `cdkw deploy -s Api`.

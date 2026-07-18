@@ -91,6 +91,11 @@ cdkw deploy prod-main -r eu-central-1 -- --require-approval never   # pass-throu
 cdkw watch feature-123 -r us-east-1        # hot-deploy one region until interrupted
 ```
 
+On a terminal, `deploy`/`destroy`/`watch` hand CDK the real stdin/stdout, so CDK's own
+security-approval and confirmation prompts just work — `--require-approval never` is only
+needed in CI or piped runs. Passing it (or `--force` for `destroy`) also brings back the
+dimmed, region-prefixed streaming, since no prompt can appear.
+
 `cdkw <verb> --help` lists all options (`--dry-run`, `--quiet`, `--plain`, …); the full CLI
 contract lives in [DESIGN.md](DESIGN.md#cli-surface).
 

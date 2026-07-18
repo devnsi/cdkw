@@ -127,9 +127,10 @@ class UI:
     def warn(self, message: str) -> None:
         self.err.print(f"[yellow]warning:[/yellow] {message}")
 
-    def region_start(self, region: str) -> None:
+    def region_start(self, region: str, *, live: bool = True) -> None:
+        """live=False skips the spinner — used when the cdk child owns the terminal."""
         self._region_start_time = time.monotonic()
-        if self.fancy:
+        if self.fancy and live:
             self._status = self.err.status(
                 f"[cyan]{region}[/cyan]  {self.verb}", spinner=self._spinner
             )

@@ -10,6 +10,7 @@ from cdkw.errors import CdkwError
 
 MUTATING_VERBS = frozenset({"deploy", "destroy", "watch"})
 SINGLE_REGION_VERBS = frozenset({"watch"})
+INTERACTIVE_VERBS = frozenset({"deploy", "destroy", "watch"})  # own the terminal on a TTY
 
 _COMPOUND_DIRECTIONS = {"northeast": "ne", "northwest": "nw", "southeast": "se", "southwest": "sw"}
 
