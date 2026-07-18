@@ -91,8 +91,7 @@ cdkw deploy stage-nft --all-regions        # primary region first, then the rest
 cdkw destroy feature-123 --all-regions     # reverse order: primary last
 cdkw deploy prod-main -r eu-central-1 -- --require-approval never   # pass-through args
 cdkw watch feature-123 -r us-east-1        # hot-deploy one region until interrupted
-cdkw deploy test-local                     # regionless environment: exactly one command
-
+cdkw deploy local                          # regionless environment: exactly one command
 ```
 
 On a terminal, `deploy`/`destroy`/`watch` hand CDK the real stdin/stdout, so CDK's own

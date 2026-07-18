@@ -321,7 +321,7 @@ rerun just that region without scrolling back.
   [typer](https://typer.tiangolo.com/) for the CLI, `pyyaml` + `pydantic` for config (same
   models as the workspace's `EnvironmentConfig`), `subprocess.run` shelling out to the `cdk`
   CLI via `npx cdk` (npm dependency, no global install). No CDK Toolkit Library — it is
-  TypeScript-only (see RESEARCH.md).
+  TypeScript-only.
 - **Windows-safe**: invoke `cdk` via its resolved `.cmd` shim / `npx.cmd`; never rely on bare
   `python` in `cdk.json` — the workspace's `cdk.json` uses `uv run python -m src.app` as the
   explicit interpreter. The wrapper must key success off the exit code, not the presence of
