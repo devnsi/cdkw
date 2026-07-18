@@ -74,15 +74,26 @@ class UI:
         region_bits = []
         for name in env_config.regions:
             region_bits.append(f"{name} {self.sym['primary']}" if name == primary else name)
-        regions_line = ", ".join(region_bits)
+        regions_note = None
         if primary:
             order_hint = "deployed last" if self.verb == "destroy" else "deployed first"
-            regions_line += f"   [dim]({self.sym['primary']} primary, {order_hint})[/dim]"
+            regions_note = f"({self.sym['primary']} primary, {order_hint})"
+
+        # (label, value, dim annotation); widths computed so annotations line up
+        rows = [
+            ("environment", env_name, f"({provenance})"),
+            ("stage", f"{env_config.stage} → {env_config.account}", None),
+            ("regions", ", ".join(region_bits), regions_note),
+        ]
+        label_width = max(len(label) for label, _, _ in rows)
+        value_width = max((len(value) for _, value, note in rows if note), default=0)
 
         self.err.print()
-        self.err.print(f"  [bold]environment[/bold]  {env_name}            [dim]({provenance})[/dim]")
-        self.err.print(f"  [bold]stage[/bold]        {env_config.stage} → {env_config.account}")
-        self.err.print(f"  [bold]regions[/bold]      {regions_line}")
+        for label, value, note in rows:
+            line = f"  [bold]{label:<{label_width}}[/bold]  {value}"
+            if note:
+                line += f"{' ' * (value_width - len(value))}   [dim]{note}[/dim]"
+            self.err.print(line)
         self.err.print()
         self.err.print(f"  [bold]plan[/bold]  {len(commands)} × cdk {self.verb}")
         for index, command in enumerate(commands, start=1):

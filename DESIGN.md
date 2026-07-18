@@ -193,7 +193,7 @@ doubles as the `--dry-run` output (dry-run stops here):
 ```
 cdkw deploy stage-nft --all-regions
 
-  environment  stage-nft            (explicit)
+  environment  stage-nft                   (explicit)
   stage        stage → 222222222222
   regions      us-east-1 ★, eu-central-1   (★ primary, deployed first)
 
@@ -206,7 +206,7 @@ When the environment came from the git branch, say so explicitly — silent infe
 people deploy the wrong thing:
 
 ```
-  environment  feature-123          (from branch feature/ABC-123-some-test)
+  environment  feature-123                 (from branch feature/ABC-123-some-test)
 ```
 
 For mutating verbs without `--region`/`--all-regions`, the interactive confirmation renders as
