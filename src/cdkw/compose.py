@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from cdkw.config import EnvironmentConfig, ProjectConfig
+from cdkw.errors import CdkwError
 from cdkw.resolve import region_short, region_shortcodes
 
 
@@ -21,10 +22,14 @@ class Hook:
 class CdkCommand:
     argv: list[str]
     region: str
-    selector: str
+    selectors: list[str]
     cwd: Path
     pre_hook: Hook | None = None
     post_hook: Hook | None = None
+
+    @property
+    def selector(self) -> str:
+        return " ".join(self.selectors)
 
     @property
     def display(self) -> str:
@@ -47,28 +52,33 @@ def compose_commands(
     extra_args: Sequence[str],
     app_dir: Path,
     root: Path | None = None,
+    *,
+    stacks: Sequence[str] = (),
 ) -> list[CdkCommand]:
     """One `cdk <verb>` invocation per region, in the given order.
 
     The region reaches app.py via --context only (app.py also honors CDK_DEPLOY_REGION,
-    but context wins, so the wrapper sets nothing else). Configured hooks are attached per
-    command, running from the project root.
+    but context wins, so the wrapper sets nothing else). `stacks` narrows the selection:
+    each name replaces the trailing `/`-segment of the formatted stack_pattern, becoming
+    one positional selector per name on the same command. Configured hooks are attached
+    per command, running from the project root.
     """
     uses_short = "{region_short}" in project.stack_pattern
     shorts = region_shortcodes(env_config.regions) if uses_short else {}
     hook_cwd = root or app_dir
     commands = []
     for region in regions:
-        selector = project.stack_pattern.format(
+        base = project.stack_pattern.format(
             environment=env_name,
             region=region,
             region_short=shorts[region] if uses_short else "",
         )
+        selectors = _selectors(base, project.stack_pattern, stacks)
         argv = [
             "npx",
             "cdk",
             verb,
-            selector,
+            *selectors,
             "--context",
             f"{project.env_context_key}={env_name}",
             "--context",
@@ -90,13 +100,24 @@ def compose_commands(
             CdkCommand(
                 argv=argv,
                 region=region,
-                selector=selector,
+                selectors=selectors,
                 cwd=app_dir,
                 pre_hook=_hook(project.hooks.pre, hook_cwd, hook_env),
                 post_hook=_hook(project.hooks.post, hook_cwd, hook_env),
             )
         )
     return commands
+
+
+def _selectors(base: str, pattern: str, stacks: Sequence[str]) -> list[str]:
+    if not stacks:
+        return [base]
+    prefix, sep, _ = base.rpartition("/")
+    if not sep:
+        raise CdkwError(
+            f"--stack needs a '/<segment>' in stack_pattern to replace (got '{pattern}')"
+        )
+    return [f"{prefix}/{stack}" for stack in stacks]
 
 
 def _hook(command: str | None, cwd: Path, env: dict[str, str]) -> Hook | None:

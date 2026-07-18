@@ -80,6 +80,10 @@ def _register(verb: str) -> None:
             bool,
             typer.Option("--all-regions", help="All configured regions, primary first (destroy: primary last)."),
         ] = False,
+        stack: Annotated[
+            Optional[list[str]],
+            typer.Option("--stack", "-s", help="Target specific stack(s) within each region; replaces the trailing segment of stack_pattern (repeatable, wildcards ok)."),
+        ] = None,
         dry_run: Annotated[
             bool, typer.Option("--dry-run", help="Print the composed cdk commands without executing.")
         ] = False,
@@ -90,7 +94,7 @@ def _register(verb: str) -> None:
             bool, typer.Option("--plain", help="Force plain output (no colors, spinners, prompts).")
         ] = False,
     ) -> None:
-        code = _run_verb(verb, list(ctx.args), environment, list(region or []), all_regions, dry_run, quiet, plain)
+        code = _run_verb(verb, list(ctx.args), environment, list(region or []), all_regions, list(stack or []), dry_run, quiet, plain)
         raise typer.Exit(code)
 
 
@@ -104,6 +108,7 @@ def _run_verb(
     environment: str | None,
     requested_regions: list[str],
     all_regions: bool,
+    stacks: list[str],
     dry_run: bool,
     quiet: bool,
     plain: bool,
@@ -132,7 +137,8 @@ def _run_verb(
             regions = _pick_regions(verb, env_name, env_config, plain)
 
         commands = compose_commands(
-            verb, env_name, env_config, regions, project, extra_args, app_dir, root
+            verb, env_name, env_config, regions, project, extra_args, app_dir, root,
+            stacks=stacks,
         )
         ui.plan(env_name, provenance, env_config, commands)
 

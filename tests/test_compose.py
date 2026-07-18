@@ -85,6 +85,49 @@ class TestComposition:
         assert "--context env=feature-123" in command.display
 
 
+class TestStackSelection:
+    def test_stack_replaces_trailing_segment(self, env_config, project_config):
+        (command,) = compose_commands(
+            "deploy", "feature-123", env_config, ["us-east-1"], project_config, [], APP_DIR,
+            stacks=["Api"],
+        )
+        assert command.selectors == ["feature-123-use1/Api"]
+        assert command.argv[2:4] == ["deploy", "feature-123-use1/Api"]
+
+    def test_multiple_stacks_become_selectors_on_one_command(self, env_config, project_config):
+        (command,) = compose_commands(
+            "deploy", "feature-123", env_config, ["us-east-1"], project_config, [], APP_DIR,
+            stacks=["Api", "Db"],
+        )
+        assert command.selectors == ["feature-123-use1/Api", "feature-123-use1/Db"]
+        assert command.argv[3:5] == ["feature-123-use1/Api", "feature-123-use1/Db"]
+        assert command.argv[5] == "--context"
+
+    def test_stacks_applied_per_region(self, env_config, project_config):
+        commands = compose_commands(
+            "synth", "feature-123", env_config, ["us-east-1", "eu-central-1"], project_config,
+            [], APP_DIR, stacks=["Api"],
+        )
+        assert [c.selectors for c in commands] == [
+            ["feature-123-use1/Api"], ["feature-123-euc1/Api"]
+        ]
+
+    def test_wildcard_stack_name_quoted_in_display(self, env_config, project_config):
+        (command,) = compose_commands(
+            "deploy", "feature-123", env_config, ["us-east-1"], project_config, [], APP_DIR,
+            stacks=["Api*"],
+        )
+        assert '"feature-123-use1/Api*"' in command.display
+
+    def test_pattern_without_slash_rejects_stacks(self, env_config):
+        project = ProjectConfig(stack_pattern="{environment}-{region_short}")
+        with pytest.raises(CdkwError, match="stack_pattern"):
+            compose_commands(
+                "deploy", "feature-123", env_config, ["us-east-1"], project, [], APP_DIR,
+                stacks=["Api"],
+            )
+
+
 class TestHooks:
     ROOT = Path("root")
 

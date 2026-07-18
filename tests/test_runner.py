@@ -47,7 +47,7 @@ def command(region: str, pre: Hook | None = None, post: Hook | None = None) -> C
     return CdkCommand(
         argv=["npx", "cdk", "deploy", f"env-{region}/*"],
         region=region,
-        selector=f"env-{region}/*",
+        selectors=[f"env-{region}/*"],
         cwd=Path("."),
         pre_hook=pre,
         post_hook=post,
@@ -104,7 +104,7 @@ class TestInheritStdio:
         cmd = CdkCommand(
             argv=["npx", "-c", "import sys; print('owned'); sys.exit(5)"],
             region="us-east-1",
-            selector="*",
+            selectors=["*"],
             cwd=Path("."),
             pre_hook=None,
             post_hook=None,

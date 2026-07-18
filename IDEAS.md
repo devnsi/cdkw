@@ -3,21 +3,6 @@
 Evaluated against [DESIGN.md](DESIGN.md). Guiding lens: the tool is a *command composer* — no
 state, no abstraction layer; every idea must keep the echoed-`cdk`-command migration path intact.
 
-## Stack selection
-
-Target a subset of stacks within a region, e.g. `cdkw deploy -s Api`.
-
-- **Pros**: CDK supports it natively (positional selectors + `--exclusively`); today the wrapper
-  always emits `{environment}-{region_short}/*` and passthrough args can't replace that
-  positional, so users have no way to narrow.
-- **Cons**: Another axis of selection on top of environment × region; wildcard/naming rules leak
-  into the wrapper's UX.
-- **Approach**: Add repeatable `--stack/-s NAME`; compose the selector as
-  `{environment}-{region_short}/<NAME>` per value instead of `/*` (keep `stack_pattern`'s prefix
-  logic — replace only the trailing segment, or add a `stack_pattern` variant key like
-  `stack_selector: '{environment}-{region_short}/{stack}'`). Pure composition change, dry-run
-  snapshot tests. **Good fit** — it's still just command composition.
-
 ## Regionless environments (local / no region)
 
 For running `deploy`/`diff`/etc. against e.g. localstack — but **not** as a special case: all

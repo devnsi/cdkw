@@ -21,7 +21,7 @@ commands are the migration path back to plain CDK.
 ## CLI surface
 
 ```
-cdkw <verb> [ENVIRONMENT] [--region REGION]... [--all-regions] [-- <extra cdk args>]
+cdkw <verb> [ENVIRONMENT] [--region REGION]... [--all-regions] [--stack NAME]... [-- <extra cdk args>]
 ```
 
 - **Verbs**: `synth`, `diff`, `deploy`, `destroy`, `list`, `watch` — 1:1 with CDK. Unknown trailing args
@@ -40,6 +40,12 @@ cdkw <verb> [ENVIRONMENT] [--region REGION]... [--all-regions] [-- <extra cdk ar
   granular one-region-at-a-time control is the core requirement, so mutating verbs never fan out
   silently. `watch` runs until interrupted, so it targets exactly **one** region: `--all-regions`
   and multiple `--region` values are errors, and the interactive prompt is a single pick.
+- **`--stack` / `-s`** (repeatable): narrow to specific stacks within each region. Each value
+  replaces the trailing `/`-segment of the formatted `stack_pattern`
+  (`feature-123-use1/*` → `feature-123-use1/Api`); multiple values become multiple positional
+  selectors on the *same* composed command, so it stays one `cdk` invocation per
+  (environment, region). Names pass through to CDK untouched (wildcards like `Api*` work);
+  a `stack_pattern` without a `/` cannot be narrowed and errors.
 - **`--dry-run`**: print the composed `cdk` commands without executing.
 
 Worked examples for each of these are in the [README](README.md#usage).
@@ -132,7 +138,8 @@ cdk <verb> '<environment>-<region_short>/*' \
   is configured for the environment, so wrapper and app agree on errors. The wrapper never
   parses templates.
 - Stack selector comes from `stack_pattern` (default `{environment}-{region_short}/*`, matching
-  the workspace's stage naming), so naming conventions stay in config. The app's stage ids must
+  the workspace's stage naming), so naming conventions stay in config; `--stack` swaps only the
+  pattern's trailing segment, one selector per name. The app's stage ids must
   be derived with the same `region_short` rule — the workspace keeps its copy in
   [`workspace/src/config/environment.py`](workspace/src/config/environment.py), pinned to the
   wrapper's by a test.

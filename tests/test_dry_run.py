@@ -61,6 +61,26 @@ class TestDryRun:
         assert result.exit_code == 0, combined_output(result)
         assert '$ npx cdk watch "feature-123-use1/*"' in combined_output(result)
 
+    def test_stack_selection_narrows_selector(self):
+        result = runner.invoke(
+            app, ["deploy", "feature-123", "-r", "use1", "-s", "Api", "--dry-run", "--plain"]
+        )
+        assert result.exit_code == 0, combined_output(result)
+        output = combined_output(result)
+        assert "npx cdk deploy feature-123-use1/Api" in output
+        assert "/*" not in output
+
+    def test_multiple_stacks_on_one_command(self):
+        result = runner.invoke(
+            app,
+            ["deploy", "feature-123", "-r", "use1", "-s", "Api", "-s", "Db", "--dry-run", "--plain"],
+        )
+        assert result.exit_code == 0, combined_output(result)
+        output = combined_output(result)
+        # both selectors on one composed command, not one command per stack
+        assert "npx cdk deploy feature-123-use1/Api feature-123-use1/Db --context" in output
+        assert "deploy feature-123-use1/Api --context" not in output
+
     def test_extra_args_pass_through(self):
         result = runner.invoke(
             app,

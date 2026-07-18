@@ -85,6 +85,7 @@ cdkw diff                                  # environment from git branch, all it
 cdkw deploy test-main -r us-east-1         # one environment, one region
 cdkw deploy test-main -r use1              # same, using the region shortcode
 cdkw deploy test-main -r us-east-1 -r us-west-1   # explicit sequence
+cdkw deploy test-main -r use1 -s Api       # only the Api stack in that region
 cdkw deploy stage-nft --all-regions        # primary region first, then the rest
 cdkw destroy feature-123 --all-regions     # reverse order: primary last
 cdkw deploy prod-main -r eu-central-1 -- --require-approval never   # pass-through args
