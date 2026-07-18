@@ -120,6 +120,29 @@ class TestRegionOrdering:
         ]
 
 
+class TestRegionlessResolution:
+    @pytest.mark.parametrize("verb", ["synth", "diff", "list", "deploy", "destroy", "watch"])
+    def test_regionless_is_a_single_unit_for_every_verb(self, regionless_env_config, verb):
+        # empty list, not None: no picker even for mutating verbs — the unit is the granular unit
+        assert order_regions(regionless_env_config, verb, [], False) == []
+
+    def test_region_flag_rejected(self, regionless_env_config):
+        with pytest.raises(CdkwError, match="regionless"):
+            order_regions(regionless_env_config, "deploy", ["us-east-1"], False)
+
+    def test_region_shortcode_rejected(self, regionless_env_config):
+        with pytest.raises(CdkwError, match="regionless"):
+            order_regions(regionless_env_config, "deploy", ["use1"], False)
+
+    def test_all_regions_rejected(self, regionless_env_config):
+        with pytest.raises(CdkwError, match="regionless"):
+            order_regions(regionless_env_config, "synth", [], True)
+
+    def test_watch_all_regions_gets_the_regionless_message(self, regionless_env_config):
+        with pytest.raises(CdkwError, match="regionless"):
+            order_regions(regionless_env_config, "watch", [], True)
+
+
 class TestRegionShort:
     @pytest.mark.parametrize(
         ("region", "short"),

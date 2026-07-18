@@ -128,6 +128,62 @@ class TestStackSelection:
             )
 
 
+class TestRegionlessComposition:
+    def test_exactly_one_command_without_region_context(self, regionless_env_config, project_config):
+        (command,) = compose_commands(
+            "deploy", "feature-123", regionless_env_config, [], project_config, [], APP_DIR
+        )
+        assert command.argv == [
+            "npx",
+            "cdk",
+            "deploy",
+            "feature-123/*",
+            "--context",
+            "env=feature-123",
+            "--profile",
+            "account-test",
+        ]
+        assert command.region == ""
+
+    def test_regions_argument_ignored(self, regionless_env_config, project_config):
+        commands = compose_commands(
+            "synth", "feature-123", regionless_env_config, ["us-east-1"], project_config, [],
+            APP_DIR,
+        )
+        assert len(commands) == 1
+        assert "region=us-east-1" not in commands[0].argv
+
+    def test_custom_regionless_pattern(self, regionless_env_config):
+        project = ProjectConfig(stack_pattern_regionless="local-{environment}/*")
+        (command,) = compose_commands(
+            "synth", "feature-123", regionless_env_config, [], project, [], APP_DIR
+        )
+        assert command.selector == "local-feature-123/*"
+
+    def test_stack_replaces_trailing_segment(self, regionless_env_config, project_config):
+        (command,) = compose_commands(
+            "deploy", "feature-123", regionless_env_config, [], project_config, [], APP_DIR,
+            stacks=["Api"],
+        )
+        assert command.selectors == ["feature-123/Api"]
+
+    def test_regionless_pattern_without_slash_rejects_stacks(self, regionless_env_config):
+        project = ProjectConfig(stack_pattern_regionless="{environment}")
+        with pytest.raises(CdkwError, match=r"\{environment\}"):
+            compose_commands(
+                "deploy", "feature-123", regionless_env_config, [], project, [], APP_DIR,
+                stacks=["Api"],
+            )
+
+    def test_hook_region_vars_empty(self, regionless_env_config):
+        project = ProjectConfig(hooks={"pre": "echo pre"})
+        (command,) = compose_commands(
+            "deploy", "feature-123", regionless_env_config, [], project, [], APP_DIR
+        )
+        assert command.pre_hook.env["CDKW_REGION"] == ""
+        assert command.pre_hook.env["CDKW_REGION_SHORT"] == ""
+
+
 class TestHooks:
     ROOT = Path("root")
 

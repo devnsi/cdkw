@@ -102,6 +102,38 @@ class TestDryRun:
         assert "$ npx cdk synth" in output
 
 
+class TestRegionlessDryRun:
+    def test_mutating_verb_runs_without_picker(self):
+        # off-TTY: a regioned deploy without --region would hard-error; regionless must not
+        result = runner.invoke(app, ["deploy", "local", "--dry-run", "--plain"])
+        assert result.exit_code == 0, combined_output(result)
+        output = combined_output(result)
+        assert '$ npx cdk deploy "local/*"' in output
+        assert "region=" not in output
+
+    def test_synth_composes_one_command(self):
+        result = runner.invoke(app, ["synth", "local", "--dry-run", "--plain"])
+        assert result.exit_code == 0, combined_output(result)
+        output = combined_output(result)
+        assert "1 × cdk synth" in output
+        assert '$ npx cdk synth "local/*"' in output
+
+    def test_plan_block_notes_regionless(self):
+        result = runner.invoke(app, ["synth", "local", "--dry-run", "--plain"])
+        output = combined_output(result)
+        assert "(regionless)" in output
+
+    def test_region_flag_rejected(self):
+        result = runner.invoke(app, ["deploy", "local", "-r", "us-east-1", "--dry-run", "--plain"])
+        assert result.exit_code == 2
+        assert "regionless" in combined_output(result)
+
+    def test_all_regions_rejected(self):
+        result = runner.invoke(app, ["synth", "local", "--all-regions", "--dry-run", "--plain"])
+        assert result.exit_code == 2
+        assert "regionless" in combined_output(result)
+
+
 class TestHooksDryRun:
     def test_hook_lines_shown_around_cdk_command(self, tmp_path, monkeypatch):
         (tmp_path / "cdk.json").write_text("{}")
@@ -140,6 +172,16 @@ class TestWorkspaceContract:
             "cn-northwest-1",
         ]:
             assert module.region_short(region) == region_short(region)
+
+    def test_workspace_schema_accepts_regionless(self):
+        """Both schema copies must treat an omitted `regions` map as regionless."""
+        spec = importlib.util.spec_from_file_location(
+            "workspace_environment", WORKSPACE / "src" / "config" / "environment.py"
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        config = module.EnvironmentConfig.model_validate({"account": "1", "stage": "test"})
+        assert config.regions == {}
 
 
 class TestErrors:

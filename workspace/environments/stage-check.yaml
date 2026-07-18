@@ -7,3 +7,11 @@ regions:
     is_primary: true
   us-west-3:
     is_primary: false
+  eu-west-1:
+    is_primary: false
+  eu-west-2:
+    is_primary: false
+  eu-west-3:
+    is_primary: false
+  eu-north-1:
+    is_primary: false

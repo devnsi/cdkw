@@ -54,6 +54,17 @@ class TestEnvironmentLookup:
     def test_known_environments_sorted(self, config_dir):
         assert known_environments(config_dir) == ["dev-feature", "test-main"]
 
+    def test_omitted_regions_means_regionless(self, config_dir):
+        (config_dir / "test-local.yaml").write_text("account: '111'\nstage: test\n")
+        config = load_environment("test-local", config_dir)
+        assert config.regions == {}
+        assert config.primary_region is None
+
+    def test_bare_regions_key_means_regionless(self, config_dir):
+        (config_dir / "test-local.yaml").write_text("account: '111'\nstage: test\nregions:\n")
+        config = load_environment("test-local", config_dir)
+        assert config.regions == {}
+
 
 class TestProjectConfig:
     def test_defaults_match_workspace_conventions(self):
@@ -61,6 +72,7 @@ class TestProjectConfig:
         assert config.config_dir == "environments"
         assert config.env_context_key == "env"
         assert config.stack_pattern == "{environment}-{region_short}/*"
+        assert config.stack_pattern_regionless == "{environment}/*"
         assert config.feature_fallback == "dev-feature"
 
     def test_missing_file_yields_defaults(self, tmp_path):
@@ -74,6 +86,14 @@ class TestProjectConfig:
 
     def test_unknown_keys_rejected(self, tmp_path):
         (tmp_path / "cdkw.yml").write_text("no_such_key: 1\n")
+        with pytest.raises(CdkwError, match="invalid"):
+            load_project_config(tmp_path)
+
+    @pytest.mark.parametrize("placeholder", ["{region}", "{region_short}"])
+    def test_region_placeholders_rejected_in_regionless_pattern(self, tmp_path, placeholder):
+        (tmp_path / "cdkw.yml").write_text(
+            f"stack_pattern_regionless: '{{environment}}-{placeholder}/*'\n"
+        )
         with pytest.raises(CdkwError, match="invalid"):
             load_project_config(tmp_path)
 

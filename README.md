@@ -39,7 +39,8 @@ Plain CDK commands do not cover this combinatorial space well, which is the gap 
   (e.g. account A for test, account B for stage, account C for prod).
 - **Environment**: an encapsulated, full standalone provisioning of the application
   (e.g. `feature-123`, `stage-main`). Multiple environments can coexist in the same account/stage.
-- **Region**: each environment can be deployed to up to 4 AWS regions.
+- **Region**: each environment can be deployed to multiple AWS regions — or none (a *regionless*
+  environment, e.g. targeting local emulation like localstack).
 
 ## Configuration model
 
@@ -90,6 +91,8 @@ cdkw deploy stage-nft --all-regions        # primary region first, then the rest
 cdkw destroy feature-123 --all-regions     # reverse order: primary last
 cdkw deploy prod-main -r eu-central-1 -- --require-approval never   # pass-through args
 cdkw watch feature-123 -r us-east-1        # hot-deploy one region until interrupted
+cdkw deploy test-local                     # regionless environment: exactly one command
+
 ```
 
 On a terminal, `deploy`/`destroy`/`watch` hand CDK the real stdin/stdout, so CDK's own

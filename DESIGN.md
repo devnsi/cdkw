@@ -40,6 +40,9 @@ cdkw <verb> [ENVIRONMENT] [--region REGION]... [--all-regions] [--stack NAME]...
   granular one-region-at-a-time control is the core requirement, so mutating verbs never fan out
   silently. `watch` runs until interrupted, so it targets exactly **one** region: `--all-regions`
   and multiple `--region` values are errors, and the interactive prompt is a single pick.
+  For a *regionless* environment (no `regions` configured) both `--region` and `--all-regions`
+  are errors, and mutating verbs skip the interactive confirmation — the single composed
+  command already is the granular unit.
 - **`--stack` / `-s`** (repeatable): narrow to specific stacks within each region. Each value
   replaces the trailing `/`-segment of the formatted `stack_pattern`
   (`feature-123-use1/*` → `feature-123-use1/Api`); multiple values become multiple positional
@@ -83,7 +86,11 @@ regions: # deployment targets, the single source of truth (map, not list)
 ```
 
 The primary region is the entry with `is_primary: true` (derived property, not a separate key);
-region order otherwise follows the map's declaration order. Feature environments share
+region order otherwise follows the map's declaration order. An empty or omitted `regions` map
+makes the environment **regionless**: the wrapper composes exactly one command per environment
+alone (see [command composition](#command-composition)) — e.g. for local emulation targets like
+localstack, whose redirection (endpoints, fake accounts) lives entirely in the app-specific
+YAML values and `app.py`, never in the wrapper. Feature environments share
 [`environments/dev-feature.yaml`](workspace/environments/dev-feature.yaml); config file lookup
 is exact name first (`environments/<env>.yaml`), then `feature-*` names fall back to the shared
 file. Unknown environments fail with a message listing the known ones — the wrapper reuses this
@@ -99,6 +106,7 @@ app_dir: .                  # where cdk.json lives
 branch_pattern: 'feature/[A-Za-z]+-(?P<num>\d+).*'   # → feature-<num>
 env_context_key: env        # produces: --context env=<environment>
 stack_pattern: '{environment}-{region_short}/*'      # cdk stack selector template
+stack_pattern_regionless: '{environment}/*'          # selector for regionless environments
 feature_fallback: dev-feature                        # shared config for feature-* envs
 
 hooks:                      # optional; shell commands run around each composed cdk command
@@ -113,6 +121,9 @@ abbreviated region derived by `cdkw.resolve.region_short`: prefix and trailing n
 each middle word contributing its first letter, compound directions two (`us-east-1` → `use1`,
 `ap-south-1` → `aps1`, `ap-southeast-1` → `apse1`, `us-gov-west-1` → `usgw1`). The wrapper
 refuses to compose commands when two configured regions would collide on a shortcode.
+
+`stack_pattern_regionless` may only use `{environment}` — `{region}` and `{region_short}` are
+rejected at config load, since regionless selectors render per environment alone.
 
 ## Command composition
 
@@ -146,6 +157,12 @@ cdk <verb> '<environment>-<region_short>/*' \
 - Regions run **sequentially**; a failure stops the sequence (later regions may depend on the
   primary region's global resources). `--continue-on-error` can be added later if needed.
 - Exit code: the first failing `cdk` exit code, passed through unchanged.
+- A **regionless** environment (empty/omitted `regions` map) composes exactly one command:
+  `cdk <verb> '<environment>/*' --context env=<environment> [--profile …]` — no region
+  context. The selector comes from `stack_pattern_regionless` (default `{environment}/*`);
+  `app.py` creates a single stage named `<environment>`, with no region suffix — the same
+  wrapper/app naming agreement as `region_short`, pinned by test. `--stack` narrowing works
+  the same way.
 
 ## Hooks
 
@@ -161,7 +178,8 @@ so the single source of truth stands.
   root**, through the platform shell (`shell=True`: cmd.exe on Windows, `/bin/sh` on POSIX).
 - Context via environment variables (merged over the ambient environment): `CDKW_VERB`,
   `CDKW_ENVIRONMENT`, `CDKW_STAGE`, `CDKW_ACCOUNT`, `CDKW_PROFILE` (empty when unset),
-  `CDKW_REGION`, `CDKW_REGION_SHORT`; the post hook additionally gets `CDKW_EXIT_CODE`.
+  `CDKW_REGION`, `CDKW_REGION_SHORT` (both empty for regionless environments); the post hook
+  additionally gets `CDKW_EXIT_CODE`.
 - **Env injection (pre → cdk)**: the pre hook receives `CDKW_ENV`, the path of a fresh temp
   file; `KEY=VALUE` lines it writes there (blanks and `#` comments ignored, malformed lines
   warn and are skipped) are merged into that unit's cdk child environment — GitHub-Actions
@@ -187,6 +205,8 @@ so the single source of truth stands.
 | `deploy`                | primary first, then config order (only with `--all-regions`) |
 | `destroy`               | reverse: config order reversed, primary **last**             |
 | `watch`                 | exactly one region (explicit `--region` or interactive pick) |
+
+Regionless environments are a single unit per verb — the table does not apply.
 
 ## User experience & output design
 

@@ -37,6 +37,11 @@ def _elapsed(seconds: float) -> str:
     return f"{minutes}m {secs:02d}s"
 
 
+def _region_label(region: str) -> str:
+    """Display label for a unit's region; empty means a regionless environment."""
+    return region or "regionless"
+
+
 class UI:
     def __init__(self, verb: str, *, plain: bool = False, quiet: bool = False) -> None:
         self.verb = verb
@@ -88,6 +93,10 @@ class UI:
             f"{name} {self.sym['primary']}" if name == primary else name
             for name in env_config.regions
         )
+        if not env_config.regions:
+            regions_value = "none"
+            region_bits = ["none"]
+            regions_note = "(regionless)"
         rows = [
             ("environment", env_name, f"[magenta]{env_name}[/magenta]", f"({provenance})"),
             ("stage", f"{env_config.stage} → {env_config.account}", None, None),
@@ -105,10 +114,13 @@ class UI:
         self.err.print()
         self.err.print(f"  [bold]plan[/bold]  {len(commands)} × cdk {self.verb}")
         for index, command in enumerate(commands, start=1):
-            self.err.print(
-                f"    {index}. [cyan]{command.region:<15}[/cyan] "
-                f"[magenta]{command.selector}[/magenta]"
-            )
+            if command.region:
+                self.err.print(
+                    f"    {index}. [cyan]{command.region:<15}[/cyan] "
+                    f"[magenta]{command.selector}[/magenta]"
+                )
+            else:
+                self.err.print(f"    {index}. [magenta]{command.selector}[/magenta]")
         self.err.print()
 
     # ── per-region progress ─────────────────────────────────────────────────
@@ -132,7 +144,7 @@ class UI:
         self._region_start_time = time.monotonic()
         if self.fancy and live:
             self._status = self.err.status(
-                f"[cyan]{region}[/cyan]  {self.verb}", spinner=self._spinner
+                f"[cyan]{_region_label(region)}[/cyan]  {self.verb}", spinner=self._spinner
             )
             self._status.start()
 
@@ -140,7 +152,7 @@ class UI:
         if self._status is None:
             return
         elapsed = _elapsed(time.monotonic() - self._region_start_time)
-        text = f"[cyan]{region}[/cyan]  {self.verb}   {elapsed}"
+        text = f"[cyan]{_region_label(region)}[/cyan]  {self.verb}   {elapsed}"
         if tail:
             text += f"   [dim]{tail}[/dim]"
         self._status.update(text)
@@ -154,7 +166,11 @@ class UI:
             self._update_status(region, "")
         if self.quiet:
             return
-        self.err.print(f"  {region} {self.sym['bar']} {line.rstrip()}", markup=False, style="dim")
+        self.err.print(
+            f"  {_region_label(region)} {self.sym['bar']} {line.rstrip()}",
+            markup=False,
+            style="dim",
+        )
 
     def passthrough_out(self, line: str) -> None:
         sys.stdout.write(line)
@@ -171,11 +187,12 @@ class UI:
             self._status = None
         if ok:
             self.err.print(
-                f"  [green]{self.sym['ok']}[/green] {region:<15} {self.verb}   {_elapsed(duration)}"
+                f"  [green]{self.sym['ok']}[/green] {_region_label(region):<15} "
+                f"{self.verb}   {_elapsed(duration)}"
             )
         else:
             self.err.print(
-                f"  [red]{self.sym['fail']}[/red] {region:<15} {self.verb}   "
+                f"  [red]{self.sym['fail']}[/red] {_region_label(region):<15} {self.verb}   "
                 f"{_elapsed(duration)}   [red]exit {exit_code}[/red]"
             )
 
@@ -195,15 +212,19 @@ class UI:
             warning = f"   [yellow]{r.hook_warning}[/yellow]" if r.hook_warning else ""
             if r.status == "succeeded":
                 self.err.print(
-                    f"  [green]{self.sym['ok']}[/green] {r.region:<15} {_elapsed(r.duration)}{warning}"
+                    f"  [green]{self.sym['ok']}[/green] {_region_label(r.region):<15} "
+                    f"{_elapsed(r.duration)}{warning}"
                 )
             elif r.status == "failed":
                 self.err.print(
-                    f"  [red]{self.sym['fail']}[/red] {r.region:<15} {_elapsed(r.duration)}   "
+                    f"  [red]{self.sym['fail']}[/red] {_region_label(r.region):<15} "
+                    f"{_elapsed(r.duration)}   "
                     f"[red]exit {r.exit_code} — sequence stopped[/red]{warning}"
                 )
             else:
-                self.err.print(f"  [dim]{self.sym['queued']} {r.region:<15} skipped[/dim]")
+                self.err.print(
+                    f"  [dim]{self.sym['queued']} {_region_label(r.region):<15} skipped[/dim]"
+                )
         counts = {
             "succeeded": sum(1 for r in results if r.status == "succeeded"),
             "failed": sum(1 for r in results if r.status == "failed"),

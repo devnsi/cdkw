@@ -20,5 +20,16 @@ def env_config() -> EnvironmentConfig:
 
 
 @pytest.fixture
+def regionless_env_config() -> EnvironmentConfig:
+    return EnvironmentConfig.model_validate(
+        {
+            "account": "111111111111",
+            "profile": "account-test",
+            "stage": "test",
+        }
+    )
+
+
+@pytest.fixture
 def project_config() -> ProjectConfig:
     return ProjectConfig()

@@ -7,7 +7,7 @@ must agree on the same files.
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 
 from cdkw.errors import CdkwError
 
@@ -26,7 +26,13 @@ class EnvironmentConfig(BaseModel):
     account: str
     profile: str | None = None
     stage: str
-    regions: dict[str, RegionConfig]
+    regions: dict[str, RegionConfig] = {}  # empty/omitted ⇒ regionless environment
+
+    @field_validator("regions", mode="before")
+    @classmethod
+    def _bare_regions_key(cls, value: object) -> object:
+        # a bare `regions:` key in YAML loads as None
+        return {} if value is None else value
 
     @property
     def primary_region(self) -> str | None:
@@ -55,8 +61,19 @@ class ProjectConfig(BaseModel):
     branch_pattern: str = r"feature/[A-Za-z]+-(?P<num>\d+).*"
     env_context_key: str = "env"
     stack_pattern: str = "{environment}-{region_short}/*"
+    stack_pattern_regionless: str = "{environment}/*"
     feature_fallback: str = "dev-feature"
     hooks: HooksConfig = HooksConfig()
+
+    @field_validator("stack_pattern_regionless")
+    @classmethod
+    def _no_region_placeholders(cls, value: str) -> str:
+        if "{region}" in value or "{region_short}" in value:
+            raise ValueError(
+                "stack_pattern_regionless renders per environment alone — "
+                "{region}/{region_short} are invalid here"
+            )
+        return value
 
 
 def find_project_root(start: Path | None = None) -> Path:

@@ -102,8 +102,16 @@ def order_regions(
 
     Explicit --region values run in the given order. --all-regions (and the default for
     non-mutating verbs) uses the primary-first ordering. Mutating verbs without a selection
-    return None so the CLI can prompt interactively or fail.
+    return None so the CLI can prompt interactively or fail. An empty list means the
+    environment is regionless — a single unit, no selection needed, ordering rules don't apply.
     """
+    if not config.regions:
+        if requested or all_regions:
+            raise CdkwError(
+                "this environment is regionless (no regions configured) — "
+                "--region/--all-regions do not apply"
+            )
+        return []
     if verb in SINGLE_REGION_VERBS:
         if all_regions or len(requested) > 1:
             raise CdkwError(f"cdk {verb} runs a single region until interrupted — pass one --region")

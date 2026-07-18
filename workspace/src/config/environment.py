@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 ENVIRONMENTS_DIR = Path(__file__).resolve().parents[2] / "environments"
 FEATURE_FALLBACK = "dev-feature"
@@ -25,7 +25,13 @@ class EnvironmentConfig(BaseModel):
     account: str
     profile: str | None = None
     stage: str
-    regions: dict[str, RegionConfig]
+    regions: dict[str, RegionConfig] = {}  # empty/omitted ⇒ regionless environment
+
+    @field_validator("regions", mode="before")
+    @classmethod
+    def _bare_regions_key(cls, value: object) -> object:
+        # a bare `regions:` key in YAML loads as None
+        return {} if value is None else value
 
     @property
     def primary_region(self) -> str | None:
