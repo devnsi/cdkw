@@ -99,25 +99,29 @@ is exact name first (`environments/<env>.yaml`), then `feature-*` names fall bac
 file. Unknown environments fail with a message listing the known ones — the wrapper reuses this
 loader (or mirrors it exactly) rather than inventing a second schema.
 
-### Project config (`cdkw.yml`, repo root)
+### Project config (`.cdkw.yaml`, repo root)
 
 Small and optional-by-default; defaults match the workspace conventions:
 
 ```yaml
 config_dir: environments
-app_dir: .                  # where cdk.json lives
+app_dir: .                                           # where cdk.json lives
 branch_pattern: 'feature/[A-Za-z]+-(?P<num>\d+).*'   # → feature-<num>
-env_context_key: env        # produces: --context env=<environment>
+env_context_key: env                                 # produces: --context env=<environment>
 stack_pattern: '{environment}-{region_short}/*'      # cdk stack selector template
 stack_pattern_regionless: '{environment}/*'          # selector for regionless environments
 feature_fallback: dev-feature                        # shared config for feature-* envs
 
-hooks:                      # optional; shell commands run around each composed cdk command
+hooks: # optional; shell commands run around each composed cdk command
   pre: 'uv run scripts/prepare.py'
   post: 'uv run scripts/tag_deployment.py'
 ```
 
 Accounts and profiles live in each environment file (no stage→account map needed).
+
+Also accepted, in this precedence order: `.cdkw.yml`, `cdkw.yaml`, `cdkw.yml` — the hidden
+`.yaml` form is the documented one, the rest just work. Two of them present in the same root is
+an error listing both: silently loading one of two configs is how people deploy the wrong thing.
 
 `stack_pattern` may use `{environment}`, `{region}` (full name), and `{region_short}` — an
 abbreviated region derived by `cdkw.resolve.region_short`: prefix and trailing number kept,
@@ -170,7 +174,7 @@ cdk <verb> '<environment>-<region_short>/*' \
 ## Hooks
 
 `cdkw` stays a command composer; everything else is an **extension point**: two user-provided
-shell commands, `pre` and `post`, declared in `cdkw.yml` and run around each composed cdk
+shell commands, `pre` and `post`, declared in `.cdkw.yaml` and run around each composed cdk
 command. Hooks that only care about some verbs branch on `CDKW_VERB` themselves — deliberately
 no per-verb keys. Example uses: git deployment tags (`post` tagging
 `env/$CDKW_ENVIRONMENT-$CDKW_REGION_SHORT` on deploy, removing it on destroy), notifications,

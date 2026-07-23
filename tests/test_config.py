@@ -1,6 +1,7 @@
 import pytest
 
 from cdkw.config import (
+    CONFIG_NAMES,
     ProjectConfig,
     find_project_root,
     known_environments,
@@ -78,20 +79,27 @@ class TestProjectConfig:
     def test_missing_file_yields_defaults(self, tmp_path):
         assert load_project_config(tmp_path) == ProjectConfig()
 
-    def test_overrides_from_cdkw_yml(self, tmp_path):
-        (tmp_path / "cdkw.yml").write_text("env_context_key: stage\nconfig_dir: config\n")
+    @pytest.mark.parametrize("name", CONFIG_NAMES)
+    def test_overrides_from_any_accepted_name(self, tmp_path, name):
+        (tmp_path / name).write_text("env_context_key: stage\nconfig_dir: config\n")
         config = load_project_config(tmp_path)
         assert config.env_context_key == "stage"
         assert config.config_dir == "config"
 
+    def test_two_config_names_rejected(self, tmp_path):
+        (tmp_path / ".cdkw.yaml").write_text("config_dir: config\n")
+        (tmp_path / "cdkw.yml").write_text("config_dir: other\n")
+        with pytest.raises(CdkwError, match="multiple cdkw configs"):
+            load_project_config(tmp_path)
+
     def test_unknown_keys_rejected(self, tmp_path):
-        (tmp_path / "cdkw.yml").write_text("no_such_key: 1\n")
+        (tmp_path / ".cdkw.yaml").write_text("no_such_key: 1\n")
         with pytest.raises(CdkwError, match="invalid"):
             load_project_config(tmp_path)
 
     @pytest.mark.parametrize("placeholder", ["{region}", "{region_short}"])
     def test_region_placeholders_rejected_in_regionless_pattern(self, tmp_path, placeholder):
-        (tmp_path / "cdkw.yml").write_text(
+        (tmp_path / ".cdkw.yaml").write_text(
             f"stack_pattern_regionless: '{{environment}}-{placeholder}/*'\n"
         )
         with pytest.raises(CdkwError, match="invalid"):
@@ -102,8 +110,8 @@ class TestProjectConfig:
         assert config.hooks.pre is None
         assert config.hooks.post is None
 
-    def test_hooks_from_cdkw_yml(self, tmp_path):
-        (tmp_path / "cdkw.yml").write_text(
+    def test_hooks_from_project_config(self, tmp_path):
+        (tmp_path / ".cdkw.yaml").write_text(
             "hooks:\n  pre: uv run scripts/prepare.py\n  post: uv run scripts/tag.py\n"
         )
         config = load_project_config(tmp_path)
@@ -111,7 +119,7 @@ class TestProjectConfig:
         assert config.hooks.post == "uv run scripts/tag.py"
 
     def test_unknown_hook_keys_rejected(self, tmp_path):
-        (tmp_path / "cdkw.yml").write_text("hooks:\n  pre_deploy: echo hi\n")
+        (tmp_path / ".cdkw.yaml").write_text("hooks:\n  pre_deploy: echo hi\n")
         with pytest.raises(CdkwError, match="invalid"):
             load_project_config(tmp_path)
 
@@ -123,6 +131,13 @@ class TestProjectRoot:
         nested.mkdir(parents=True)
         assert find_project_root(nested) == tmp_path
 
+    @pytest.mark.parametrize("name", CONFIG_NAMES)
+    def test_found_via_config_without_cdk_json(self, tmp_path, name):
+        (tmp_path / name).write_text("")
+        nested = tmp_path / "a" / "b"
+        nested.mkdir(parents=True)
+        assert find_project_root(nested) == tmp_path
+
     def test_missing_markers_error(self, tmp_path):
-        with pytest.raises(CdkwError, match="no cdkw.yml or cdk.json"):
+        with pytest.raises(CdkwError, match=r"no \.cdkw\.yaml or cdk\.json"):
             find_project_root(tmp_path)

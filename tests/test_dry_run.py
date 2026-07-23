@@ -137,7 +137,7 @@ class TestRegionlessDryRun:
 class TestHooksDryRun:
     def test_hook_lines_shown_around_cdk_command(self, tmp_path, monkeypatch):
         (tmp_path / "cdk.json").write_text("{}")
-        (tmp_path / "cdkw.yml").write_text(
+        (tmp_path / ".cdkw.yaml").write_text(
             "hooks:\n  pre: uv run scripts/prepare.py\n  post: uv run scripts/tag.py\n"
         )
         env_dir = tmp_path / "environments"

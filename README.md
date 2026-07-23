@@ -53,7 +53,7 @@ Each environment is described by its own YAML file (`environments/<environment>.
 captures the differences per environment: the AWS account and stage, an optional AWS profile, and
 a `regions` map marking the primary region. The exception is feature environments: they share a
 single common YAML file that is instantiated per feature. The full schema — plus the optional
-project-level `cdkw.yml` — is specified in [DESIGN.md](DESIGN.md#configuration).
+project-level `.cdkw.yaml` — is specified in [DESIGN.md](DESIGN.md#configuration).
 
 Example YAML files:
 
@@ -109,7 +109,7 @@ contract lives in [DESIGN.md](DESIGN.md#cli-surface).
 
 ### Hooks
 
-Optional `pre`/`post` shell commands in `cdkw.yml` run around every composed `cdk` command,
+Optional `pre`/`post` shell commands in `.cdkw.yaml` run around every composed `cdk` command,
 with context passed as `CDKW_*` environment variables (`CDKW_VERB`, `CDKW_ENVIRONMENT`,
 `CDKW_REGION`, `CDKW_REGION_SHORT`, …). For example, tagging what is deployed where:
 

@@ -1,6 +1,6 @@
 [project]
 name = "cdkw"
-version = "1.0.0"
+version = "1.1.0"
 description = "Thin CDK wrapper CLI for multi-stage, multi-environment, multi-region deployments"
 readme = "README.md"
 license = "MIT"

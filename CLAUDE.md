@@ -19,8 +19,7 @@ deployments. Docs are split by audience — don't duplicate content across them:
   snapshot tests, no AWS needed.
 - Run tests: `uv run pytest`
 - Real end-to-end runs: from `workspace/`, e.g. `uv run --project .. cdkw synth feature-123`
-  (cdkw finds the project root via `cdk.json`/`cdkw.yml`; the workspace needs `uv sync` and npm's
-  CDK CLI once).
+  (cdkw finds the project root via `cdk.json`/`.cdkw.yaml`; the workspace needs `uv sync` and npm's CDK CLI once).
 
 ## Terminology trap
 

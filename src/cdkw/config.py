@@ -1,4 +1,4 @@
-"""Configuration loading: project config (cdkw.yml) and per-environment YAML files.
+"""Configuration loading: project config (.cdkw.yaml) and per-environment YAML files.
 
 The environment schema mirrors workspace/src/config/environment.py — the wrapper and app.py
 must agree on the same files.
@@ -10,6 +10,8 @@ import yaml
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 
 from cdkw.errors import CdkwError
+
+CONFIG_NAMES = (".cdkw.yaml", ".cdkw.yml", "cdkw.yaml", "cdkw.yml")
 
 
 class RegionConfig(BaseModel):
@@ -52,7 +54,7 @@ class HooksConfig(BaseModel):
 
 
 class ProjectConfig(BaseModel):
-    """Optional cdkw.yml at the project root; defaults match the workspace conventions."""
+    """Optional .cdkw.yaml at the project root; defaults match the workspace conventions."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -77,19 +79,32 @@ class ProjectConfig(BaseModel):
 
 
 def find_project_root(start: Path | None = None) -> Path:
-    """Walk up from `start` (default: cwd) to the first directory holding cdkw.yml or cdk.json."""
+    """Walk up from `start` (default: cwd) to the first directory holding a config or cdk.json."""
     start = (start or Path.cwd()).resolve()
     for candidate in (start, *start.parents):
-        if (candidate / "cdkw.yml").exists() or (candidate / "cdk.json").exists():
+        if (candidate / "cdk.json").exists() or any(
+            (candidate / name).exists() for name in CONFIG_NAMES
+        ):
             return candidate
     raise CdkwError(
-        f"no cdkw.yml or cdk.json found in {start} or any parent — run cdkw inside a CDK project"
+        f"no .cdkw.yaml or cdk.json found in {start} or any parent — run cdkw inside a CDK project"
     )
 
 
+def find_project_config(root: Path) -> Path | None:
+    """The project config in `root`, if any; two accepted names at once is an error, not a guess."""
+    found = [root / name for name in CONFIG_NAMES if (root / name).exists()]
+    if len(found) > 1:
+        names = ", ".join(path.name for path in found)
+        raise CdkwError(
+            f"multiple cdkw configs in {root}: {names} — keep one (.cdkw.yaml recommended)"
+        )
+    return found[0] if found else None
+
+
 def load_project_config(root: Path) -> ProjectConfig:
-    path = root / "cdkw.yml"
-    if not path.exists():
+    path = find_project_config(root)
+    if path is None:
         return ProjectConfig()
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     try:
